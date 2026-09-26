@@ -11,7 +11,7 @@ from server import YouTube, APIError, import_csv
 class ServerTests(unittest.TestCase):
     def test_missing_key(self):
         with self.assertRaisesRegex(APIError,'not configured'):
-            YouTube('').search('pelikone','fi','all')
+            YouTube('').search('pelikone','FI','fi','all')
 
     def test_cached_transport_and_secret_not_in_response(self):
         client=YouTube('secret-for-test-only')
@@ -43,15 +43,18 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'synthetic01'}}]}
             if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}}]}
         client.get=transport
-        response=client.search('halpa pelikone','fi','nano')
+        response=client.search('halpa pelikone','FI','fi','nano')
         self.assertEqual(len(response['creators']),1)
         c=response['creators'][0]
         self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
         self.assertEqual(response['nextPageToken'],'next-fixture')
-        self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
-        self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
+        self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
+        self.assertTrue(client.search('halpa pelikone','FI','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
+        self.assertEqual(c['videos'][0]['matchedSearch'],False)
+        client.search('halpa pelikone','FI','fi','nano','next-fixture')
+        self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
 
     def test_search_keeps_matched_video_first(self):
         client=YouTube('test');video_ids=[]
@@ -61,8 +64,23 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
             if endpoint=='videos':
                 video_ids.append(args['id'])
-                return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
+                return {'items':[{'id':x,'snippet':{'title':x,'publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
         client.get=transport
-        videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
+        videos=client.search('halpa pelikone','FI','fi','all')['creators'][0]['videos']
         self.assertEqual(video_ids,['matched0001,latest00001'])
         self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
+
+    def test_csv_unknowns_and_quoted_fields(self):
+        value='name,platform,source_url,provenance,followers,audience_country\n"SYNTHETIC, TEST",Twitch,https://www.twitch.tv/synthetic_test_only,TEST FIXTURE ONLY,,FI\n'
+        result=import_csv(value,'test.csv')['creators'][0]
+        self.assertEqual(result['name'],'SYNTHETIC, TEST');self.assertIsNone(result['followers']);self.assertIsNone(result['audienceCountry'])
+        self.assertEqual(result['sourceType'],'imported')
+        duplicate=value+value.splitlines()[1]+'\n'
+        self.assertEqual(import_csv(duplicate,'test.csv')['count'],1)
+
+    def test_csv_validation_atomic(self):
+        for row in ['bad,Twitch,javascript:alert(1),test,', 'bad,Twitch,https://example.com/test,test,', 'bad,Twitch,https://twitch.tv/test,test,-2']:
+            with self.assertRaises(APIError):import_csv('name,platform,source_url,provenance,followers\n'+row,'test.csv')
+        with self.assertRaises(APIError):import_csv('name\nx','test.csv')
+
+if __name__=='__main__':unittest.main()
