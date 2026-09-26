@@ -19,17 +19,41 @@ const keywordGroups={
 const sellerWords=['sell','myynt','myyd','verkauf','vendre','verkop','sälja','upgrad','päivit','päivity','aufrüst'];
 export const factorLabels={topic:'Recent topic relevance',language:'Language clues',recency:'Posting recency',views:'Views relative to size',engagement:'Public engagement'};
 export const defaultWeights={topic:40,language:20,recency:15,views:15,engagement:10};
+export function languageCode(value){
+ if(!value)return null;
+ const normalized=String(value).trim().toLowerCase().replace('_','-');
+ const named=Object.entries(languages).find(([,label])=>label.toLowerCase()===normalized);
+ return named?named[0]:normalized.split('-')[0];
+}
+export function languageMatchStatus(c,selectedLanguage){
+ const hints=[...(c.videos||[]).map(v=>v.language),c.language].filter(Boolean);
+ const codes=[...new Set(hints.map(languageCode).filter(Boolean))];
+ if(!codes.length)return 'unknown';
+ return codes.includes(languageCode(selectedLanguage))?'match':'mismatch';
+}
+export function marketMatchStatus(c,selectedCountry){
+ if(!c.market)return 'unknown';
+ const raw=String(c.market).trim();
+ const code=Object.entries(markets).find(([key,label])=>key===raw.toUpperCase()||label.toLowerCase()===raw.toLowerCase())?.[0];
+ return code===selectedCountry?'match':'mismatch';
+}
+export function creatorSizeMatch(c,size){
+ if(size==='all')return true;
+ const n=c.followers;
+ if(n===null||n===undefined)return false;
+ return size==='nano'?n<10000:size==='micro'?n>=10000&&n<100000:size==='mid'?n>=100000&&n<500000:n>=500000;
+}
 export function evidence(c,config,weights=defaultWeights,at=Date.now()){
  const videos=c.videos||[], words=[...keywordGroups[config.niche]||keywordGroups.Gaming,...(config.goal==='sellers'?sellerWords:[])];
  const relevant=videos.filter(v=>words.some(w=>(v.title+' '+(v.description||'')).toLowerCase().includes(w)));
  const hints=videos.map(v=>v.language).filter(Boolean);if(c.language)hints.push(c.language);
- const languageMatch=hints.some(x=>x.toLowerCase().split('-')[0]===config.language||x.toLowerCase()===languages[config.language]?.toLowerCase());
+ const languageStatus=languageMatchStatus(c,config.language);
  const dates=videos.map(v=>Date.parse(v.publishedAt)).filter(Number.isFinite), newest=dates.length?Math.max(...dates):null;
  const age=newest===null?null:Math.max(0,Math.floor((at-newest)/86400000));
  const views=videos.map(v=>v.views).filter(v=>v!==null&&v!==undefined),avg=views.length?views.reduce((a,b)=>a+b,0)/views.length:null;
  const ratios=videos.filter(v=>v.views>0&&v.likes!=null&&v.comments!=null).map(v=>(v.likes+v.comments)/v.views*100);
  const rate=ratios.length?ratios.reduce((a,b)=>a+b,0)/ratios.length:null;
- const factors={topic:videos.length?Math.round(relevant.length/videos.length*100):null,language:hints.length?(languageMatch?100:0):null,
+ const factors={topic:videos.length?Math.round(relevant.length/videos.length*100):null,language:languageStatus==='unknown'?null:(languageStatus==='match'?100:0),
  recency:age===null?null:age<=30?100:age<=90?70:age<=180?40:10,
  views:avg!==null&&c.followers>0?Math.min(100,Math.round(avg/c.followers*100)):null,
  engagement:rate===null?null:Math.min(100,Math.round(rate*20))};

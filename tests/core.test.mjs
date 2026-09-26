@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
-import {localizedQuery,evidence,defaultWeights,shortlistCSV} from '../dist/research-core.js';
+import {localizedQuery,evidence,defaultWeights,shortlistCSV,languageCode,languageMatchStatus,marketMatchStatus,creatorSizeMatch,niches} from '../dist/research-core.js';
 const fi={country:'FI',language:'fi',niche:'Budget gaming',goal:'buyers'};
 assert.match(localizedQuery(fi),/halpa pelikone/);
 assert.match(localizedQuery({...fi,language:'de'}),/günstiger/);
 assert.match(localizedQuery({...fi,goal:'sellers'}),/myynti/);
+for(const language of ['fi','de','fr','nl','sv','en'])for(const niche of niches)assert.ok(localizedQuery({...fi,language,niche,goal:'buyers'}));
+assert.equal(languageCode('zh-Hans'),'zh');assert.equal(languageCode('zh-HK'),'zh');
+assert.equal(languageMatchStatus({videos:[{language:'zh-Hans'},{language:'zh-HK'}]},'sv'),'mismatch');
+assert.equal(languageMatchStatus({videos:[{language:'zh-Hans'},{language:'sv-SE'}]},'sv'),'match');
+assert.equal(languageMatchStatus({videos:[{}]},'sv'),'unknown');
+assert.equal(marketMatchStatus({market:'Sweden'},'SE'),'match');assert.equal(marketMatchStatus({market:'FI'},'SE'),'mismatch');assert.equal(marketMatchStatus({},'SE'),'unknown');
+assert.equal(creatorSizeMatch({followers:9999},'nano'),true);assert.equal(creatorSizeMatch({followers:10000},'nano'),false);assert.equal(creatorSizeMatch({followers:10000},'micro'),true);assert.equal(creatorSizeMatch({followers:100000},'mid'),true);assert.equal(creatorSizeMatch({followers:null},'micro'),false);
 const c={name:'=SYNTHETIC TEST',sourceType:'imported',platform:'Twitch',followers:1000,videos:[{title:'halpa pelikone testi',description:'budget test',views:500,likes:null,comments:4,publishedAt:'2026-09-01T00:00:00Z',language:null,url:'https://twitch.tv/synthetic_test_only'}]};
 const e=evidence(c,fi,defaultWeights,Date.parse('2026-09-26'));
 assert.equal(e.factors.topic,100);assert.equal(e.factors.language,null);assert.equal(e.factors.engagement,null);assert.equal(e.factors.views,50);assert.equal(e.known,3);

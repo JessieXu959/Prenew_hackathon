@@ -13,5 +13,8 @@ Verified in the local browser on 2026-09-26:
 - Manual Confirmed status is read back successfully.
 - Mobile layout checked at 390 × 844; comparison scrolls within its panel. Viewport reset afterward.
 - Optional read-only WebMCP tool returns the same campaign/pipeline; invalid input is rejected.
+- Language filtering normalizes regional tags such as `zh-Hans`, `zh-HK` and `sv-SE`; explicit non-selected languages are hidden while unknown metadata remains eligible.
+- Country, language, niche, goal and edited query changes invalidate stale live results; creator-size changes filter the current set immediately.
+- Live Sweden/Swedish verification hid nine explicit metadata mismatches returned by YouTube instead of displaying them as Swedish candidates.
 
-The browser is left with one fictional creator, Budget Respawn, marked Confirmed for demo purposes. No messages were sent. Seller-specific concepts exist but were not separately exercised end-to-end. No external APIs are configured or used. CSV import is a documented adapter contract and sample file, not an upload feature.
+The browser retains the earlier fictional Budget Respawn pipeline record for demo continuity. No messages were sent. YouTube live retrieval was verified with a locally configured key that remains outside Git. Seller-specific concepts were not separately exercised end-to-end. CSV upload and paste import were verified with synthetic test data in an isolated browser origin.
