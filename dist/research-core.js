@@ -26,7 +26,7 @@ function matcher(word){if(!matchers.has(word)){const whole=word.endsWith('$'),st
  matchers.set(word,new RegExp((whole||stem.length<7?'(?<![\\p{L}\\p{N}])':'')+esc+(whole?'(?![\\p{L}\\p{N}])':''),'u'))}return matchers.get(word)}
 export function matchesKeywords(text,words){const t=String(text||'').toLowerCase();return words.some(w=>matcher(w).test(t))}
 export const factorLabels={topic:'Recent topic relevance',language:'Language clues',recency:'Posting recency',views:'Views relative to size',engagement:'Public engagement'};
-export const defaultWeights={topic:40,language:20,recency:15,views:15,engagement:10};
+export const defaultWeights={topic:40,language:0,recency:15,views:15,engagement:10};
 export function evidence(c,config,weights=defaultWeights,at=Date.now()){
  const videos=c.videos||[], words=[...keywordGroups[config.niche]||keywordGroups.Gaming,...(config.goal==='sellers'?sellerWords:[])];
  const relevant=videos.filter(v=>matchesKeywords(v.title+' '+(v.description||''),words));
@@ -41,7 +41,7 @@ export function evidence(c,config,weights=defaultWeights,at=Date.now()){
  recency:age===null?null:age<=30?100:age<=90?70:age<=180?40:10,
  views:avg!==null&&c.followers>0?Math.min(100,Math.round(avg/c.followers*100)):null,
  engagement:rate===null?null:Math.min(100,Math.round(rate*20))};
- let total=0,denominator=0;for(const k in factors){if(factors[k]!==null){total+=factors[k]*weights[k];denominator+=weights[k]}}
+ let total=0,denominator=0;for(const k in factors){if(k!=='language'&&factors[k]!==null){total+=factors[k]*weights[k];denominator+=weights[k]}}
  return {factors,score:denominator?Math.round(total/denominator):null,known:Object.values(factors).filter(v=>v!==null).length,relevant,age,avg,rate,engagementSamples:ratios.length,languageHints:[...new Set(hints)]};
 }
 export function unknowns(c){return [c.audienceCountry&&c.audienceSource?'Audience geography: uploader evidence supplied; not independently verified':'Audience geography unverified','Audience age and demographics unknown','Fee, availability and collaboration interest unknown','Content honesty and sponsorship conflicts require manual review',...(c.followers==null?['Channel size unknown']:[]),...(!(c.videos||[]).length?['Recent video evidence missing']:[])];}

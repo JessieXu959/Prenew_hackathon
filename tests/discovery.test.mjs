@@ -32,3 +32,11 @@ const state={research:base,records:{},researchWeights:defaultWeights};
 for(const [id,followers,views,language] of [['pass',501,5001,'sv-SE'],['japanese',900,9000,'ja'],['unknown',900,9000,null],['subBoundary',500,9000,'sv'],['viewBoundary',900,5000,'sv']])state.records[id]={...creator,id,followers,videos:[{...video,views,language}]};
 assert.deepEqual(filtered(state).map(c=>c.id),['pass']);
 console.log('Strict metadata and minimum boundary checks passed.');
+
+const ranking={research:{source:'imported',size:'all',language:'fi',niche:'Budget gaming',goal:'buyers'},researchWeights:{topic:100,language:100,recency:0,views:0,engagement:0},records:{
+ small:{...creator,id:'small',followers:1000,videos:[{...video,title:'Pasta recipe'}]},
+ large:{...creator,id:'large',followers:500000,videos:[video]}
+}};
+assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);
+assert.equal(ranking.researchWeights.language,0);
+console.log('Ranking checks passed: no small-creator priority, language weight removed.');
