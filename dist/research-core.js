@@ -50,3 +50,29 @@ export function angle(c,config){return config.goal==='sellers'?'An old-rig audit
 export function csvCell(value){let s=String(value??'');if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
 export function shortlistCSV(entries,config,weights){const headers=['name','platform','source_type','source_url','provenance','fetched_or_imported_at','discovery_market','search_language','query','review','notes','scoring_niche','scoring_goal','scoring_language','scoring_weights','score','topic_score','language_score','recency_score','views_score','engagement_score','known_factors','evidence_urls','evidence_titles','evidence_dates','unknowns','collaboration_angle','outreach_status'];
 const lines=entries.map(({creator:c,pipeline:p})=>{const e=evidence(c,config,weights);return [c.name,c.platform,c.sourceType||'demo',c.sourceUrl||'',c.source,c.fetchedAt,markets[c.market]||c.market||'',c.searchLanguage||c.language||'',c.query||'',p.review||'Unreviewed',p.notes||'',config.niche,config.goal,config.language,JSON.stringify(weights),e.score,...Object.values(e.factors),e.known,(c.videos||[]).map(v=>v.url).join(' | '),(c.videos||[]).map(v=>v.title).join(' | '),(c.videos||[]).map(v=>v.publishedAt||'Unknown').join(' | '),unknowns(c).join('; '),angle(c,config),p.status].map(csvCell).join(',')});return '\ufeff'+[headers.map(csvCell).join(','),...lines].join('\r\n');}
+
+// Comparison uses observed metrics only; missing values never become zero.
+export function comparisonMetrics(c){
+ const videos=c.videos||[];
+ const average=key=>{const values=videos.map(v=>v[key]).filter(v=>Number.isFinite(v)&&v>=0);return {value:values.length?values.reduce((a,b)=>a+b,0)/values.length:null,count:values.length}};
+ const samples=videos.filter(v=>v.views>0&&Number.isFinite(v.likes)&&Number.isFinite(v.comments));
+ const engagement=samples.length?samples.reduce((sum,v)=>sum+(v.likes+v.comments)/v.views*100,0)/samples.length:null;
+ const groups={...keywordGroups,'Resale / upgrades':sellerWords};
+ const keywords=new Set(),themes=[];
+ for(const [theme,words] of Object.entries(groups)){
+  let count=0;
+  for(const v of videos){
+   const text=(String(v.title||'')+' '+String(v.description||'')).toLowerCase();
+   if(matchesKeywords(text,words))count++;
+   for(const word of words){
+    const match=text.match(matcher(word));if(!match)continue;
+    let start=match.index,end=start+match[0].length;
+    while(start>0&&/[\p{L}\p{N}]/u.test(text[start-1]))start--;
+    while(end<text.length&&/[\p{L}\p{N}]/u.test(text[end]))end++;
+    keywords.add(text.slice(start,end));
+   }
+  }
+  if(count)themes.push(`${theme} (${count}/${videos.length} videos)`);
+ }
+ return {views:average('views'),likes:average('likes'),comments:average('comments'),engagement,engagementSamples:samples.length,keywords:[...keywords].sort(),themes,total:videos.length};
+}
