@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {filtered} from '../dist/discovery.js';
 import {defaultWeights} from '../dist/research-core.js';
 
-const video={title:'budget gaming PC',language:'fi',publishedAt:new Date().toISOString(),views:500,likes:20,comments:5};
+const video={title:'budget gaming PC',language:'fi',publishedAt:new Date().toISOString(),views:6000,likes:20,comments:5};
 const creator={id:'good',sourceType:'imported',followers:1000,videos:[video]};
 const records={
   good:creator,
@@ -15,14 +15,28 @@ const records={
 };
 for(const source of ['imported','live']){
   const state={records:Object.fromEntries(Object.entries(records).map(([id,c])=>[id,{...c,sourceType:source}])),research:{source,ids:Object.keys(records),size:'all',language:'fi',niche:'Budget gaming',goal:'buyers'},researchWeights:{...defaultWeights}};
-  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['engagement','good','topic','unknown','views']);
+  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['engagement','good','topic']);
   state.researchWeights=Object.fromEntries(Object.keys(defaultWeights).map(k=>[k,0]));
-  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['engagement','good','topic','unknown','views']);
+  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['engagement','good','topic']);
   state.research.language='de';
-  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['language','unknown']);
+  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['language']);
   state.research.language='fr';
-  assert.deepEqual(filtered(state).map(c=>c.id).sort(),['unknown']);
+  assert.deepEqual(filtered(state).map(c=>c.id).sort(),[]);
   state.research.size='mid';
   assert.deepEqual(filtered(state),[]);
 }
-console.log('Discovery checks passed: known language mismatches hidden, unknown language retained, other zero factors retained.');
+console.log('Discovery checks passed: strict language matching and minimum metrics.');
+
+const base={source:'imported',size:'all',language:'sv',niche:'Budget gaming',goal:'buyers'};
+const state={research:base,records:{},researchWeights:defaultWeights};
+for(const [id,followers,views,language] of [['pass',501,5001,'sv-SE'],['japanese',900,9000,'ja'],['unknown',900,9000,null],['subBoundary',500,9000,'sv'],['viewBoundary',900,5000,'sv']])state.records[id]={...creator,id,followers,videos:[{...video,views,language}]};
+assert.deepEqual(filtered(state).map(c=>c.id),['pass']);
+console.log('Strict metadata and minimum boundary checks passed.');
+
+const ranking={research:{source:'imported',size:'all',language:'fi',niche:'Budget gaming',goal:'buyers'},researchWeights:{topic:100,language:100,recency:0,views:0,engagement:0},records:{
+ small:{...creator,id:'small',followers:1000,videos:[{...video,title:'Pasta recipe'}]},
+ large:{...creator,id:'large',followers:500000,videos:[video]}
+}};
+assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);
+assert.equal(ranking.researchWeights.language,0);
+console.log('Ranking checks passed: no small-creator priority, language weight removed.');

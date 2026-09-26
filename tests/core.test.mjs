@@ -23,3 +23,17 @@ assert.equal(evidence({...c,followers:null},fi).factors.views,null);
 const csv=shortlistCSV([{creator:c,pipeline:{status:'Shortlisted',notes:'first line\nsecond, line',review:'Reviewing'}}],fi,defaultWeights);
 assert.match(csv,/'=SYNTHETIC TEST/);assert.match(csv,/Audience geography unverified/);assert.match(csv,/first line\nsecond, line/);
 console.log('Core checks passed: localized queries, missing evidence, scoring, zero weights, CSV escaping.');
+
+const {comparisonMetrics}=await import('../dist/research-core.js');
+const comparison=comparisonMetrics({videos:[{title:'Refurbished budget gaming PC',views:1000,likes:50,comments:10},{title:'Pasta recipe',views:3000,likes:null,comments:0},{title:'GPU upgrade',views:null,likes:10,comments:null}]});
+assert.deepEqual(comparison.views,{value:2000,count:2});
+assert.deepEqual(comparison.comments,{value:5,count:2});
+assert.deepEqual(comparison.likes,{value:30,count:2});
+assert.equal(comparison.engagement,6);
+assert.equal(comparison.engagementSamples,1);
+assert.ok(comparison.keywords.includes('refurbished'));
+assert.ok(comparison.keywords.includes('upgrade'));
+assert.ok(!comparison.keywords.includes('pasta'));
+assert.equal(comparisonMetrics({}).views.value,null);
+assert.equal(comparisonMetrics({}).engagement,null);
+console.log('Comparison metrics checks passed.');
