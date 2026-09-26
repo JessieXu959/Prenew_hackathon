@@ -56,6 +56,7 @@ class YouTube:
         self.searches = 0
         self.calls = 0
         self.ttl = 1800
+        self.retry_after = 0
 
     def get(self, endpoint, **params):
         if not self.key:
@@ -65,6 +66,9 @@ class YouTube:
             hit = self.cache.get(cache_key)
             if hit and time.time() - hit[0] < self.ttl:
                 return hit[1]
+            remaining = self.retry_after - time.time()
+            if remaining > 0:
+                raise APIError('YouTube rate-limited requests. Wait %s seconds before searching again. Your query is not the cause.' % (int(remaining) + 1), 429)
             day = datetime.now(timezone.utc).date().isoformat()
             if day != self.day:
                 self.day, self.searches, self.calls = day, 0, 0
@@ -79,6 +83,13 @@ class YouTube:
                     data = json.load(response)
             except HTTPError as error:
                 # Never include upstream URL, key, request or raw response in errors/logs.
+                if error.code == 429:
+                    try:
+                        delay = max(60, int(error.headers.get('Retry-After', '60'))) if error.headers else 60
+                    except (ValueError, TypeError):
+                        delay = 60
+                    self.retry_after = time.time() + delay
+                    raise APIError('YouTube rate-limited requests. Wait %s seconds before searching again. Existing results are kept; changing the query will not remove this limit.' % delay, 429) from None
                 if error.code in (401, 403):
                     raise APIError('YouTube denied this request. Check that Data API v3 is enabled, the server key restrictions are correct, and quota remains. Comments may also be disabled.', 502) from None
                 raise APIError('YouTube could not complete this request (HTTP %s). Check the query or try again later.' % error.code, 502) from None
@@ -89,26 +100,26 @@ class YouTube:
             self.cache[cache_key] = (time.time(), data)
             return data
 
-    def search(self, query, country, language, size, token=''):
-        identity = (query, country, language, size, token)
+    def search(self, query, language, size, token=''):
+        identity = (query, language, size, token)
         with self.lock:
             cached = self.result_cache.get(identity)
             if cached and time.time() - cached[0] < self.ttl:
                 return dict(cached[1], cached=True)
-            result = self._search(query, country, language, size, token)
+            result = self._search(query, language, size, token)
             if len(self.result_cache) >= 100:
                 self.result_cache.pop(next(iter(self.result_cache)))
             self.result_cache[identity] = (time.time(), result)
             return dict(result, cached=False)
 
-    def _search(self, query, country, language, size, token=''):
+    def _search(self, query, language, size, token=''):
         if not query or len(query) > 220:
             raise APIError('Enter a search query between 1 and 220 characters.')
-        if country not in ('FI', 'DE', 'FR', 'NL', 'SE', 'GB') or language not in ('fi', 'de', 'fr', 'nl', 'sv', 'en'):
-            raise APIError('Choose a supported country and language.')
+        if language not in ('fi', 'de', 'fr', 'nl', 'sv', 'en'):
+            raise APIError('Choose a supported language.')
         if size not in ('all', 'nano', 'micro', 'mid', 'large') or len(token) > 500:
             raise APIError('Invalid size or pagination token.')
-        params = dict(part='snippet', type='video', q=query, regionCode=country,
+        params = dict(part='snippet', type='video', q=query,
                       relevanceLanguage=language, maxResults=25, order='relevance',
                       publishedAfter=(datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z'))
         if token:
@@ -149,6 +160,9 @@ class YouTube:
                         'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
                         'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
                         'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
+            tags = [snippet.get('defaultLanguage')] + [v.get('language') for v in videos]
+            if not any(str(tag or '').lower().split('-')[0] == language for tag in tags):
+                continue
             views = [v['views'] for v in videos if v['views'] is not None]
             engagement = [100*(v['likes']+v['comments'])/v['views'] for v in videos if v['views'] and v['likes'] is not None and v['comments'] is not None]
             records.append({'id': 'yt-'+cid, 'channelId': cid, 'name': snippet['title'], 'platform': 'YouTube',
@@ -156,7 +170,7 @@ class YouTube:
                 'country': snippet.get('country'), 'language': snippet.get('defaultLanguage'), 'topic': 'PC / gaming candidate',
                 'followers': count(channel), 'recentViews': round(sum(views)/len(views)) if views else None,
                 'engagement': sum(engagement)/len(engagement) if engagement else None, 'engagementSamples':len(engagement),
-                'fee': None, 'audienceCountry': None, 'videos': videos, 'fetchedAt': now(), 'market': country,
+                'fee': None, 'audienceCountry': None, 'videos': videos, 'fetchedAt': now(), 'market': None,
                 'searchLanguage': language, 'query': query, 'contentTitle': videos[0]['title'] if videos else '',
                 'contentUrl': videos[0]['url'] if videos else None, 'conflict': None})
         return {'creators': records, 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': warnings,
@@ -262,7 +276,7 @@ class Handler(SimpleHTTPRequestHandler):
         params={k:v[0] for k,v in parse_qs(route.query).items()}
         try:
             if route.path == '/api/status': return self.respond({'youtubeConfigured':bool(YOUTUBE.key),'cacheMinutes':30,'searchLimit':40,'searchesThisRun':YOUTUBE.searches})
-            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('country','FI'),params.get('language','fi'),params.get('size','all'),params.get('pageToken','')))
+            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('language','fi'),params.get('size','all'),params.get('pageToken','')))
             if route.path == '/api/youtube/comments': return self.respond(YOUTUBE.comments(params.get('videoId','')))
             if route.path.startswith('/api/'): raise APIError('Unknown API endpoint.',404)
             if route.path == '/creator-template.csv':

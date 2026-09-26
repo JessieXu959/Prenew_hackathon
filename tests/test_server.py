@@ -9,9 +9,21 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from server import YouTube, APIError, import_csv
 
 class ServerTests(unittest.TestCase):
+    def test_rate_limit_cooldown_and_recovery(self):
+        from urllib.error import HTTPError
+        client=YouTube('SECRET')
+        with patch('server.time.time',return_value=1000), patch('server.urlopen',side_effect=HTTPError('https://x/?key=SECRET',429,'limited',{'Retry-After':'120'},None)) as transport:
+            with self.assertRaises(APIError) as caught: client.get('search',q='pc')
+            self.assertEqual(caught.exception.status,429)
+            self.assertNotIn('SECRET',str(caught.exception))
+            with self.assertRaises(APIError): client.get('search',q='different')
+            self.assertEqual(transport.call_count,1)
+        with patch('server.time.time',return_value=1121), patch('server.urlopen',return_value=io.BytesIO(b'{"items":[]}')):
+            self.assertEqual(client.get('search',q='pc'),{'items':[]})
+
     def test_missing_key(self):
         with self.assertRaisesRegex(APIError,'not configured'):
-            YouTube('').search('pelikone','FI','fi','all')
+            YouTube('').search('pelikone','fi','all')
 
     def test_cached_transport_and_secret_not_in_response(self):
         client=YouTube('secret-for-test-only')
@@ -43,17 +55,19 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'synthetic01'}}]}
             if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}}]}
         client.get=transport
-        response=client.search('halpa pelikone','FI','fi','nano')
+        response=client.search('halpa pelikone','fi','nano')
         self.assertEqual(len(response['creators']),1)
         c=response['creators'][0]
         self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
         self.assertEqual(response['nextPageToken'],'next-fixture')
-        self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
-        self.assertTrue(client.search('halpa pelikone','FI','fi','nano')['cached'])
+        self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
+        self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
+        self.assertEqual(client.search('pc','sv','all')['creators'],[])
+        calls[:]=calls[:4]
         self.assertEqual(c['videos'][0]['matchedSearch'],False)
-        client.search('halpa pelikone','FI','fi','nano','next-fixture')
+        client.search('halpa pelikone','fi','nano','next-fixture')
         self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
 
     def test_search_keeps_matched_video_first(self):
@@ -64,9 +78,9 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
             if endpoint=='videos':
                 video_ids.append(args['id'])
-                return {'items':[{'id':x,'snippet':{'title':x,'publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
+                return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
         client.get=transport
-        videos=client.search('halpa pelikone','FI','fi','all')['creators'][0]['videos']
+        videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
         self.assertEqual(video_ids,['matched0001,latest00001'])
         self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
 
