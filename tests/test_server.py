@@ -11,7 +11,7 @@ from server import YouTube, APIError, import_csv
 class ServerTests(unittest.TestCase):
     def test_missing_key(self):
         with self.assertRaisesRegex(APIError,'not configured'):
-            YouTube('').search('pelikone','FI','fi','all')
+            YouTube('').search('pelikone','fi','all')
 
     def test_cached_transport_and_secret_not_in_response(self):
         client=YouTube('secret-for-test-only')
@@ -43,17 +43,17 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'synthetic01'}}]}
             if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}}]}
         client.get=transport
-        response=client.search('halpa pelikone','FI','fi','nano')
+        response=client.search('halpa pelikone','fi','nano')
         self.assertEqual(len(response['creators']),1)
         c=response['creators'][0]
         self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
         self.assertEqual(response['nextPageToken'],'next-fixture')
-        self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
-        self.assertTrue(client.search('halpa pelikone','FI','fi','nano')['cached'])
+        self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['order'],'viewCount');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
+        self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
         self.assertEqual(c['videos'][0]['matchedSearch'],False)
-        client.search('halpa pelikone','FI','fi','nano','next-fixture')
+        client.search('halpa pelikone','fi','nano','next-fixture')
         self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
 
     def test_search_keeps_matched_video_first(self):
@@ -66,9 +66,29 @@ class ServerTests(unittest.TestCase):
                 video_ids.append(args['id'])
                 return {'items':[{'id':x,'snippet':{'title':x,'publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
         client.get=transport
-        videos=client.search('halpa pelikone','FI','fi','all')['creators'][0]['videos']
+        videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
         self.assertEqual(video_ids,['matched0001,latest00001'])
         self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
+
+    def test_search_drops_nonmatching_language(self):
+        client=YouTube('test')
+        def transport(endpoint,**args):
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-en'}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-en','snippet':{'title':'EN ONLY','defaultLanguage':'en'},'statistics':{'subscriberCount':'800'},'contentDetails':{'relatedPlaylists':{'uploads':'p'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'videoen0001'}}]}
+            if endpoint=='videos':return {'items':[{'id':'videoen0001','snippet':{'title':'budget gaming PC','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'en-US'},'statistics':{'viewCount':'10'},'contentDetails':{}}]}
+        client.get=transport
+        self.assertEqual(client.search('halpa pelikone','fi','nano')['creators'],[])
+
+    def test_search_keeps_untagged_language(self):
+        client=YouTube('test')
+        def transport(endpoint,**args):
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-none'}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-none','snippet':{'title':'NO TAGS'},'statistics':{'subscriberCount':'800'},'contentDetails':{'relatedPlaylists':{'uploads':'p'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'videonone01'}}]}
+            if endpoint=='videos':return {'items':[{'id':'videonone01','snippet':{'title':'billig speldator','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{'viewCount':'10'},'contentDetails':{}}]}
+        client.get=transport
+        self.assertEqual(len(client.search('speldator','sv','nano')['creators']),1)
 
     def test_csv_unknowns_and_quoted_fields(self):
         value='name,platform,source_url,provenance,followers,audience_country\n"SYNTHETIC, TEST",Twitch,https://www.twitch.tv/synthetic_test_only,TEST FIXTURE ONLY,,FI\n'
