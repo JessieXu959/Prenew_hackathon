@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {localizedQuery,evidence,defaultWeights,shortlistCSV} from '../dist/research-core.js';
+const fi={country:'FI',language:'fi',niche:'Budget gaming',goal:'buyers'};
+assert.match(localizedQuery(fi),/halpa pelikone/);
+assert.match(localizedQuery({...fi,language:'de'}),/günstiger/);
+assert.match(localizedQuery({...fi,goal:'sellers'}),/myynti/);
+const c={name:'=SYNTHETIC TEST',sourceType:'imported',platform:'Twitch',followers:1000,videos:[{title:'halpa pelikone testi',description:'budget test',views:500,likes:null,comments:4,publishedAt:'2026-09-01T00:00:00Z',language:null,url:'https://twitch.tv/synthetic_test_only'}]};
+const e=evidence(c,fi,defaultWeights,Date.parse('2026-09-26'));
+assert.equal(e.factors.topic,100);assert.equal(e.factors.language,null);assert.equal(e.factors.engagement,null);assert.equal(e.factors.views,50);assert.equal(e.known,3);
+assert.equal(evidence(c,fi,Object.fromEntries(Object.keys(defaultWeights).map(k=>[k,0]))).score,null);
+assert.equal(evidence({...c,followers:null},fi).factors.views,null);
+const csv=shortlistCSV([{creator:c,pipeline:{status:'Shortlisted',notes:'first line\nsecond, line',review:'Reviewing'}}],fi,defaultWeights);
+assert.match(csv,/'=SYNTHETIC TEST/);assert.match(csv,/Audience geography unverified/);assert.match(csv,/first line\nsecond, line/);
+console.log('Core checks passed: localized queries, missing evidence, scoring, zero weights, CSV escaping.');
