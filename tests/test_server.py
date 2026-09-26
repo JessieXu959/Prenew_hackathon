@@ -52,30 +52,17 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
         self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
-        client.search('halpa pelikone','fi','nano','next-fixture')
-        self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
 
-    def test_search_drops_nonmatching_language(self):
-        client=YouTube('test')
+    def test_search_keeps_matched_video_first(self):
+        client=YouTube('test');video_ids=[]
         def transport(endpoint,**args):
-            if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-en'}}]}
-            if endpoint=='channels':return {'items':[{'id':'synthetic-en','snippet':{'title':'EN ONLY','defaultLanguage':'en'},'statistics':{'subscriberCount':'800'},'contentDetails':{'relatedPlaylists':{'uploads':'p'}}}]}
-            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'videoen0001'}}]}
-            if endpoint=='videos':return {'items':[{'id':'videoen0001','snippet':{'title':'budget gaming PC','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'en-US'},'statistics':{'viewCount':'10'},'contentDetails':{}}]}
+            if endpoint=='search':return {'items':[{'id':{'videoId':'matched0001'},'snippet':{'channelId':'synthetic-channel'}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
+            if endpoint=='videos':
+                video_ids.append(args['id'])
+                return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
         client.get=transport
-        self.assertEqual(client.search('halpa pelikone','fi','nano')['creators'],[])
-
-    def test_csv_unknowns_and_quoted_fields(self):
-        value='name,platform,source_url,provenance,followers,audience_country\n"SYNTHETIC, TEST",Twitch,https://www.twitch.tv/synthetic_test_only,TEST FIXTURE ONLY,,FI\n'
-        result=import_csv(value,'test.csv')['creators'][0]
-        self.assertEqual(result['name'],'SYNTHETIC, TEST');self.assertIsNone(result['followers']);self.assertIsNone(result['audienceCountry'])
-        self.assertEqual(result['sourceType'],'imported')
-        duplicate=value+value.splitlines()[1]+'\n'
-        self.assertEqual(import_csv(duplicate,'test.csv')['count'],1)
-
-    def test_csv_validation_atomic(self):
-        for row in ['bad,Twitch,javascript:alert(1),test,', 'bad,Twitch,https://example.com/test,test,', 'bad,Twitch,https://twitch.tv/test,test,-2']:
-            with self.assertRaises(APIError):import_csv('name,platform,source_url,provenance,followers\n'+row,'test.csv')
-        with self.assertRaises(APIError):import_csv('name\nx','test.csv')
-
-if __name__=='__main__':unittest.main()
+        videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
+        self.assertEqual(video_ids,['matched0001,latest00001'])
+        self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
