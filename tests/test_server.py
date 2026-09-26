@@ -52,8 +52,23 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
         self.assertTrue(client.search('halpa pelikone','FI','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
+        self.assertEqual(c['videos'][0]['matchedSearch'],False)
         client.search('halpa pelikone','FI','fi','nano','next-fixture')
         self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
+
+    def test_search_keeps_matched_video_first(self):
+        client=YouTube('test');video_ids=[]
+        def transport(endpoint,**args):
+            if endpoint=='search':return {'items':[{'id':{'videoId':'matched0001'},'snippet':{'channelId':'synthetic-channel'}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
+            if endpoint=='videos':
+                video_ids.append(args['id'])
+                return {'items':[{'id':x,'snippet':{'title':x,'publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
+        client.get=transport
+        videos=client.search('halpa pelikone','FI','fi','all')['creators'][0]['videos']
+        self.assertEqual(video_ids,['matched0001,latest00001'])
+        self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
 
     def test_csv_unknowns_and_quoted_fields(self):
         value='name,platform,source_url,provenance,followers,audience_country\n"SYNTHETIC, TEST",Twitch,https://www.twitch.tv/synthetic_test_only,TEST FIXTURE ONLY,,FI\n'

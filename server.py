@@ -115,6 +115,11 @@ class YouTube:
             params['pageToken'] = token
         page = self.get('search', **params)
         ids = list(dict.fromkeys(x['snippet']['channelId'] for x in page.get('items', [])))
+        matched = {}
+        for item in page.get('items', []):
+            vid = item.get('id', {}).get('videoId')
+            if vid:
+                matched.setdefault(item['snippet']['channelId'], []).append(vid)
         if not ids:
             return {'creators': [], 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': []}
         channels = self.get('channels', part='snippet,statistics,contentDetails', id=','.join(ids))['items']
@@ -130,17 +135,20 @@ class YouTube:
         for channel in channels:
             cid, snippet = channel['id'], channel['snippet']
             playlist = channel.get('contentDetails', {}).get('relatedPlaylists', {}).get('uploads')
-            videos = []
+            videos, hits = [], matched.get(cid, [])[:3]
+            vids = list(hits)
             if playlist:
                 uploads = self.get('playlistItems', part='contentDetails', playlistId=playlist, maxResults=5)
-                vids = [x['contentDetails']['videoId'] for x in uploads.get('items', [])]
-                if vids:
-                    for video in self.get('videos', part='snippet,statistics,contentDetails', id=','.join(vids)).get('items', []):
-                        sn, st = video['snippet'], video.get('statistics', {})
-                        videos.append({'id': video['id'], 'title': sn['title'], 'description': sn.get('description', '')[:2000],
-                            'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
-                            'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
-                            'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
+                vids += [x['contentDetails']['videoId'] for x in uploads.get('items', [])]
+            vids = list(dict.fromkeys(vids))
+            if vids:
+                items = self.get('videos', part='snippet,statistics,contentDetails', id=','.join(vids)).get('items', [])
+                for video in sorted(items, key=lambda v: vids.index(v['id']) if v['id'] in vids else len(vids)):
+                    sn, st = video['snippet'], video.get('statistics', {})
+                    videos.append({'id': video['id'], 'matchedSearch': video['id'] in hits, 'title': sn['title'], 'description': sn.get('description', '')[:2000],
+                        'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
+                        'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
+                        'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
             views = [v['views'] for v in videos if v['views'] is not None]
             engagement = [100*(v['likes']+v['comments'])/v['views'] for v in videos if v['views'] and v['likes'] is not None and v['comments'] is not None]
             records.append({'id': 'yt-'+cid, 'channelId': cid, 'name': snippet['title'], 'platform': 'YouTube',
@@ -153,7 +161,7 @@ class YouTube:
                 'contentUrl': videos[0]['url'] if videos else None, 'conflict': None})
         return {'creators': records, 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': warnings,
                 'searchedChannels': len(ids), 'matchingChannels':len(records), 'searchesThisRun':self.searches,
-                'note':'Up to 5 latest public uploads per channel. Search hints do not verify audience location or language.'}
+                'note':'Videos that matched the search plus up to 5 latest public uploads per channel. Search hints do not verify audience location or language.'}
 
     def comments(self, video_id):
         if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):

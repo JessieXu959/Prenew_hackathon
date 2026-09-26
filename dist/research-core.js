@@ -9,19 +9,27 @@ const terms={
  nl:['goedkope game pc | budget gaming pc','game pc bouwen | computer samenstellen','refurbished gaming pc | tweedehands computer','gaming pc test | videokaart vergelijking','game pc | pc gaming','oude pc verkopen | pc upgraden'],
  sv:['billig speldator | budget gaming dator','bygga speldator | datorbygge','begagnad speldator | rekonditionerad dator','speldator test | grafikkort jämförelse','speldator | PC spel','sälja gammal dator | uppgradera dator'],
  en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade']};
-export function localizedQuery(config){return terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0]}
+// YouTube's | operator binds single words, so multi-word alternatives are quoted as phrases.
+const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
+export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
+// Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
+// a trailing $ requires the whole word.
 const keywordGroups={
- 'Budget gaming':['budget','cheap','halpa','budjet','günstig','pas cher','goedkoop','billig','value'],
- 'PC building':['build','kasa','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','bygga'],
- 'Refurbished tech':['refurb','used','käytetty','kunnoste','gebraucht','generalüberholt','recondition','occasion','tweedehands','begagnad','rekondition'],
- 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämförelse'],
+ 'Budget gaming':['budget','cheap','halpa','halv','budjet','günstig','pas cher','goedkop','goedkoop','billig','value'],
+ 'PC building':['build','kasau','kasat','kasas','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','samenstel','bygga','bygge'],
+ 'Refurbished tech':['refurb','used$','second hand','secondhand','käytet','kunnoste','gebraucht','generalüberholt','recondition','occasion$','tweedehands','begagnad','rekondition'],
+ 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämför','prestanda','leistung'],
  'Gaming':['gaming','gamer','pelikone','pelitieto','pelaami','speldator','game pc','pc spiel']};
-const sellerWords=['sell','myynt','myyd','verkauf','vendre','verkop','sälja','upgrad','päivit','päivity','aufrüst'];
+const sellerWords=['sell$','sells$','selling','seller','myynt','myyd','verkauf','verkaufen','vendre','verkop','sälja','upgrad','päivit','aufrüst'];
+const matchers=new Map();
+function matcher(word){if(!matchers.has(word)){const whole=word.endsWith('$'),stem=whole?word.slice(0,-1):word,esc=stem.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ matchers.set(word,new RegExp((whole||stem.length<7?'(?<![\\p{L}\\p{N}])':'')+esc+(whole?'(?![\\p{L}\\p{N}])':''),'u'))}return matchers.get(word)}
+export function matchesKeywords(text,words){const t=String(text||'').toLowerCase();return words.some(w=>matcher(w).test(t))}
 export const factorLabels={topic:'Recent topic relevance',language:'Language clues',recency:'Posting recency',views:'Views relative to size',engagement:'Public engagement'};
 export const defaultWeights={topic:40,language:20,recency:15,views:15,engagement:10};
 export function evidence(c,config,weights=defaultWeights,at=Date.now()){
  const videos=c.videos||[], words=[...keywordGroups[config.niche]||keywordGroups.Gaming,...(config.goal==='sellers'?sellerWords:[])];
- const relevant=videos.filter(v=>words.some(w=>(v.title+' '+(v.description||'')).toLowerCase().includes(w)));
+ const relevant=videos.filter(v=>matchesKeywords(v.title+' '+(v.description||''),words));
  const hints=videos.map(v=>v.language).filter(Boolean);if(c.language)hints.push(c.language);
  const languageMatch=hints.some(x=>x.toLowerCase().split('-')[0]===config.language||x.toLowerCase()===languages[config.language]?.toLowerCase());
  const dates=videos.map(v=>Date.parse(v.publishedAt)).filter(Number.isFinite), newest=dates.length?Math.max(...dates):null;
