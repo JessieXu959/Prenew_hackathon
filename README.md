@@ -29,9 +29,9 @@ Open **http://127.0.0.1:4173/**. The same origin retains your previous browser d
 
 ## Discovery and evidence
 
-Choose market, language, niche, size and buyer/seller goal. Finland/Finnish and Germany/German have localized synonyms; France, Netherlands, Sweden and the UK are also supported. The query is visible and editable. For sellers, search terms emphasize resale/upgrades. Search uses region/language hints and videos from the last year, not audience location claims.
+Choose language, niche, size and buyer/seller goal. Finnish and German have localized synonyms; French, Dutch, Swedish and English are also supported. The query is visible and editable. For sellers, search terms emphasize resale/upgrades. Search uses YouTube language ranking plus a filter on declared video/channel language metadata, and videos from the last year. Country is not sent to YouTube and is not used to include or exclude creators.
 
-Each click fetches one page of up to 25 matching videos, deduplicates channel IDs, gets channel metadata in one batch, filters by known channel size and enriches candidates through their uploads playlists and video statistics. Channels with known fewer than 100,000 followers are grouped first and then ranked by evidence fit. Nano is <10k, micro is 10k–100k, mid is 100k–500k. A size filter excludes unknown-size channels rather than assuming they are small. Search results are not an exhaustive census; use more localized queries and subsequent result pages if results are sparse.
+Each click fetches one page of up to 25 matching videos, deduplicates channel IDs, gets channel metadata in one batch, filters by known channel size and declared language, and enriches candidates through their uploads playlists and video statistics. Channels with known fewer than 100,000 followers are grouped first and then ranked by evidence fit. Nano is <10k, micro is 10k–100k, mid is 100k–500k. A size filter excludes unknown-size channels rather than assuming they are small. Search results are not an exhaustive census; use more localized queries and subsequent result pages if results are sparse.
 
 Five adjustable factors: keyword relevance across recent video titles/descriptions; declared language metadata; posting recency; views relative to subscriber count; and available public engagement. Unknown factors are excluded from the weighted mean and evidence coverage is displayed. All-zero weights yield no score. These are transparent triage heuristics, not trust scores, audience demographic estimates or campaign predictions. One supplied imported video is a narrow evidence sample. Shorts/streams/long videos are not normalized. Subscriber counts are as reported by YouTube and may be rounded.
 
@@ -67,10 +67,10 @@ One local campaign is supported. Changing the campaign brief clears previous out
 
 With your key configured (results depend on current YouTube data):
 
-1. **0–15s:** select Finland, Finnish, Budget gaming, Nano or Micro. Show `halpa pelikone | budjetti pelitietokone`, then Search YouTube. Point out actual API provenance and unverified audience geography.
+1. **0–15s:** select Finnish, Budget gaming, Nano or Micro. Show `halpa pelikone | budjetti pelitietokone`, then Search YouTube. Point out actual API provenance and unverified audience geography.
 2. **15–30s:** open a returned small creator. Show subscriber count, dated linked videos, matched keywords, language clues and unknown engagement fields. Inspect the source; do not declare trust from the score. If that page contains no small channel, widen to all sizes or load another page; do not claim a result that did not appear.
 3. **30–45s:** save, mark Reviewing and write one concrete verification question about testing, condition, warranty or value. Export the shortlist.
-4. **45–60s:** switch to Germany/German. Show `günstiger Gaming PC | Budget Gaming PC` and run the same search. Compare evidence and coverage rather than raw follower counts across markets.
+4. **45–60s:** switch to German. Show `günstiger Gaming PC | Budget Gaming PC` and run the same search. Compare evidence and coverage rather than raw follower counts.
 
 Without credentials, steps 1 and 4 demonstrate localization and the explicit missing-key state, not a real search. Use your own sourced CSV to demonstrate a real small creator; or the separate Demo library to demonstrate fictional workflow only. No real small creator was verified during this run.
 

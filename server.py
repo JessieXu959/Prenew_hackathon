@@ -37,6 +37,13 @@ def now():
 def number(value):
     return int(value) if value is not None else None
 
+def language_tag(value):
+    return str(value or '').lower().split('-')[0]
+
+def matches_search_language(channel_language, videos, language):
+    tags = [language_tag(channel_language)] + [language_tag(v.get('language')) for v in videos]
+    return language in tags
+
 def safe_url(value, required=False):
     value = (value or '').strip()
     if not value and not required:
@@ -89,27 +96,27 @@ class YouTube:
             self.cache[cache_key] = (time.time(), data)
             return data
 
-    def search(self, query, country, language, size, token=''):
-        identity = (query, country, language, size, token)
+    def search(self, query, language, size, token=''):
+        identity = (query, language, size, token)
         with self.lock:
             cached = self.result_cache.get(identity)
             if cached and time.time() - cached[0] < self.ttl:
                 return dict(cached[1], cached=True)
-            result = self._search(query, country, language, size, token)
+            result = self._search(query, language, size, token)
             if len(self.result_cache) >= 100:
                 self.result_cache.pop(next(iter(self.result_cache)))
             self.result_cache[identity] = (time.time(), result)
             return dict(result, cached=False)
 
-    def _search(self, query, country, language, size, token=''):
+    def _search(self, query, language, size, token=''):
         if not query or len(query) > 220:
             raise APIError('Enter a search query between 1 and 220 characters.')
-        if country not in ('FI', 'DE', 'FR', 'NL', 'SE', 'GB') or language not in ('fi', 'de', 'fr', 'nl', 'sv', 'en'):
-            raise APIError('Choose a supported country and language.')
+        if language not in ('fi', 'de', 'fr', 'nl', 'sv', 'en'):
+            raise APIError('Choose a supported language.')
         if size not in ('all', 'nano', 'micro', 'mid', 'large') or len(token) > 500:
             raise APIError('Invalid size or pagination token.')
-        params = dict(part='snippet', type='video', q=query, regionCode=country,
-                      relevanceLanguage=language, maxResults=25, order='relevance',
+        params = dict(part='snippet', type='video', q=query, relevanceLanguage=language,
+                      maxResults=25, order='relevance',
                       publishedAfter=(datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z'))
         if token:
             params['pageToken'] = token
@@ -141,6 +148,8 @@ class YouTube:
                             'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
                             'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
                             'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
+            if not matches_search_language(snippet.get('defaultLanguage'), videos, language):
+                continue
             views = [v['views'] for v in videos if v['views'] is not None]
             engagement = [100*(v['likes']+v['comments'])/v['views'] for v in videos if v['views'] and v['likes'] is not None and v['comments'] is not None]
             records.append({'id': 'yt-'+cid, 'channelId': cid, 'name': snippet['title'], 'platform': 'YouTube',
@@ -148,12 +157,12 @@ class YouTube:
                 'country': snippet.get('country'), 'language': snippet.get('defaultLanguage'), 'topic': 'PC / gaming candidate',
                 'followers': count(channel), 'recentViews': round(sum(views)/len(views)) if views else None,
                 'engagement': sum(engagement)/len(engagement) if engagement else None, 'engagementSamples':len(engagement),
-                'fee': None, 'audienceCountry': None, 'videos': videos, 'fetchedAt': now(), 'market': country,
+                'fee': None, 'audienceCountry': None, 'videos': videos, 'fetchedAt': now(), 'market': None,
                 'searchLanguage': language, 'query': query, 'contentTitle': videos[0]['title'] if videos else '',
                 'contentUrl': videos[0]['url'] if videos else None, 'conflict': None})
         return {'creators': records, 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': warnings,
                 'searchedChannels': len(ids), 'matchingChannels':len(records), 'searchesThisRun':self.searches,
-                'note':'Up to 5 latest public uploads per channel. Search hints do not verify audience location or language.'}
+                'note':'Up to 5 latest public uploads per channel. Results keep channels whose declared video or channel language matches the search language. Country is not used. Language metadata is not proof of audience location.'}
 
     def comments(self, video_id):
         if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):
@@ -254,7 +263,7 @@ class Handler(SimpleHTTPRequestHandler):
         params={k:v[0] for k,v in parse_qs(route.query).items()}
         try:
             if route.path == '/api/status': return self.respond({'youtubeConfigured':bool(YOUTUBE.key),'cacheMinutes':30,'searchLimit':40,'searchesThisRun':YOUTUBE.searches})
-            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('country','FI'),params.get('language','fi'),params.get('size','all'),params.get('pageToken','')))
+            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('language','fi'),params.get('size','all'),params.get('pageToken','')))
             if route.path == '/api/youtube/comments': return self.respond(YOUTUBE.comments(params.get('videoId','')))
             if route.path.startswith('/api/'): raise APIError('Unknown API endpoint.',404)
             if route.path == '/creator-template.csv':
