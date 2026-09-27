@@ -41,7 +41,7 @@ const large={...creator,id:'large',followers:500000};
 const ranking=stateFor({small,large});ranking.researchWeights={topic:100,language:100,recency:0,views:0,engagement:0};
 assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);assert.equal(ranking.researchWeights.language,0);
 const html=researchHTML(stateFor({good:creator}));
-for(const expected of ['Target country / market','Germany','Recent average views','30-day publication window','5 videos','Niche / games / hardware','No public contact found','Verified audience country'])assert.ok(html.includes(expected),expected);
+for(const expected of ['Target country / market','Germany','Recent average views','600.0% view ratio','High Activity','30-day publication window','5 videos','Niche / games / hardware','No public contact found','Verified audience country'])assert.ok(html.includes(expected),expected);
 assert.match(researchDetailHTML(creator,stateFor({good:creator})),/VIEW WINDOW SAMPLE/);
 console.log('Discovery checks passed: strict country/recent-language gates, Sweden regressions, thresholds, imports, ranking, and required UI fields.');
 
