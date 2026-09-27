@@ -19,23 +19,37 @@ const records={
  viewBoundary:{...creator,id:'viewBoundary',recentViewStats:{...creator.recentViewStats,average:5000}},
 };
 const state=stateFor(records);
+const cards=researchHTML(state);
+assert.match(cards,/Latest upload: /);
+assert.doesNotMatch(cards,/recent evidence videos contain/);
+assert.doesNotMatch(cards,/Language metadata:/);
 assert.deepEqual(filtered(state).map(c=>c.id),['good']);
+<<<<<<< HEAD
+for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et']]){
+=======
+for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et'],['NL','nl']]){
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
+ const local={...creator,id:'local',market,country:market,contentLanguage:'en',eligibility:'match',market_match_tier:2,language_detected:'en',language_confidence:.65,local_market_evidence:['channel country: '+market,'local link: https://example.'+market.toLowerCase()],videos:videos.map(v=>({...v,audioLanguage:'en',metadataLanguage:'en',language:'en'}))};
+ assert.deepEqual(filtered(stateFor({local},{market,language})).map(c=>c.id),['local'],`${market} local English creator must reach matching candidates`);
+ const foreign={...local,country:'US'};
+ assert.equal(filtered(stateFor({local:foreign},{market,language})).length,0,`${market} foreign channel must stay excluded`);
+}
 state.researchWeights=Object.fromEntries(Object.keys(defaultWeights).map(k=>[k,0]));
 assert.deepEqual(filtered(state).map(c=>c.id),['good'],'Scores cannot rescue language/country mismatches');
 state.research.market='DE';assert.deepEqual(filtered(state),[],'Previous-market results cannot leak into a new market');
 state.research.market='FI';state.research.language='de';assert.deepEqual(filtered(state),[]);
 state.research.language='fi';state.research.size='mid';assert.deepEqual(filtered(state),[]);
 state.research.size='all';state.research.minSubscribers=0;state.research.minAverageViews=0;
-assert.deepEqual(filtered(state).map(c=>c.id).sort(),['good','insufficientViews','subBoundary','viewBoundary']);
+assert.deepEqual(filtered(state).map(c=>c.id).sort(),['good','insufficientViews','viewBoundary']);
 
 for(const country of ['BR','CN','JP']){
  const bad={...creator,id:country,market:'SE',country,videos:videos.map(v=>({...v,language:'sv',audioLanguage:'sv',metadataLanguage:'sv'}))};
  assert.equal(filtered(stateFor({[country]:bad},{market:'SE',language:'sv'})).length,0);
 }
 const imported={...creator,id:'imported',sourceType:'imported',country:null,videos:[{...videos[0],language:'fi'}],recentViewStats:undefined};
-assert.equal(filtered(stateFor({imported},{source:'imported',minAverageViews:0})).length,1);
+assert.equal(filtered(stateFor({imported},{source:'imported',minAverageViews:0,bucket:'review'})).length,1);
 assert.equal(filtered(stateFor({imported},{source:'imported'})).length,0,'One imported video must not masquerade as an average');
-assert.match(researchHTML(stateFor({imported},{source:'imported',minAverageViews:0})),/CSV IMPORT · UNVERIFIED/);
+assert.match(researchHTML(stateFor({imported},{source:'imported',minAverageViews:0,bucket:'review'})),/CSV IMPORT · UNVERIFIED/);
 const small={...creator,id:'small',followers:1000,videos:videos.map((v,i)=>({...v,title:i?'Gaming PC':'budget gaming PC'}))};
 const large={...creator,id:'large',followers:500000};
 const ranking=stateFor({small,large});ranking.researchWeights={topic:100,language:100,recency:0,views:0,engagement:0};
@@ -50,3 +64,20 @@ console.log('Discovery checks passed: strict country/recent-language gates, Swed
 const staleTopic={...creator,id:'stale',videos:[...videos.map(v=>({...v,title:'Cooking pasta'})),{...videos[0],id:'old-hit',title:'budget gaming PC',publishedAt:'2000-01-01',recentUpload:false,matchedSearch:true}]};
 assert.equal(filtered(stateFor({stale:staleTopic})).length,0,'An old search hit cannot establish current niche relevance');
 console.log('Current niche regression passed: historical search hits cannot rescue unrelated recent uploads.');
+
+const capped=stateFor({low:{...creator,id:'low',followers:799},edge:{...creator,id:'edge',followers:800},cap:{...creator,id:'cap',followers:1000},over:{...creator,id:'over',followers:1001}},{maxSubscribers:1000});
+assert.deepEqual(filtered(capped).map(c=>c.id).sort(),['cap','edge']);
+const reach=stateFor({a:{...creator,id:'a',followers:2000},b:{...creator,id:'b',followers:800,recentViewStats:{...creator.recentViewStats,average:9000}}});
+assert.deepEqual(filtered(reach).map(c=>c.id),['b','a']);
+<<<<<<< HEAD
+assert.match(researchHTML(reach),/How Community Engagement is Calculated/);
+=======
+assert.match(researchHTML(reach),/How community engagement is calculated/);
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
+
+const reviewState=stateFor({unknownCountry:records.unknownCountry,unknownLanguage:records.unknownLanguage,mixed:records.mixed},{bucket:'review'});
+assert.deepEqual(filtered(reviewState).map(c=>c.id).sort(),['unknownCountry','unknownLanguage']);
+assert.ok(researchHTML(reviewState).includes('Needs review'));
+assert.ok(researchDetailHTML(creator,stateFor({good:creator})).includes('Analyze community'));
+assert.ok(researchHTML(stateFor({good:creator})).includes('Estonian'));
+assert.ok(researchHTML(stateFor({good:creator})).includes('Hungarian'));

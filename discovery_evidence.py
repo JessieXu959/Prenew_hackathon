@@ -2,7 +2,11 @@
 from datetime import datetime, timezone, timedelta
 import re
 
-MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'NL': 'nl', 'SE': 'sv', 'GB': 'en'}
+<<<<<<< HEAD
+MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'SE': 'sv', 'GB': 'en', 'EE': 'et', 'HU': 'hu'}
+=======
+MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'NL': 'nl', 'SE': 'sv', 'GB': 'en', 'EE': 'et', 'HU': 'hu'}
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
 MIN_VIEW_SAMPLE = 3
 
 

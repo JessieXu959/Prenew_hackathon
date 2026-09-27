@@ -76,19 +76,19 @@ class EvidenceTests(unittest.TestCase):
         def get(endpoint,**kwargs):
             calls.append(endpoint)
             if endpoint=='search':return {'items':[{'snippet':{'channelId':str(i)}} for i in range(4)]}
-            if endpoint=='channels':return {'items':[{'id':str(i),'snippet':{'title':'Fixture','country':country}} for i,country in enumerate(['BR','CN','JP',None])]}
+            if endpoint=='channels':return {'items':[{'id':str(i),'statistics':{'subscriberCount':'1000'},'snippet':{'title':'Fixture','country':country}} for i,country in enumerate(['BR','CN','JP',None])]}
             self.fail('Must not enrich mismatched countries')
         client.get=get
         result=client.search('speldator','sv','all',market='SE')
-        self.assertEqual(result['creators'],[]);self.assertEqual(result['excluded']['countryMismatch'],3)
-        self.assertEqual(result['excluded']['countryUnknown'],1);self.assertEqual(calls,['search','channels'])
+        self.assertEqual([c['eligibility'] for c in result['creators']],['review']);self.assertEqual(result['excluded']['countryMismatch'],3)
+        self.assertEqual(result['excluded']['countryUnknown'],0);self.assertEqual(calls,['search','channels'])
 
     def test_market_in_cache_identity_and_unsupported_market_fails(self):
         client=YouTube('test');client.get=lambda endpoint,**params:{'items':[]}
         self.assertFalse(client.search('PC','en','all',market='FI')['cached'])
         self.assertFalse(client.search('PC','en','all',market='DE')['cached'])
         self.assertTrue(client.search('PC','en','all',market='FI')['cached'])
-        with self.assertRaises(APIError):client.search('PC','en','all',market='EE')
+        with self.assertRaises(APIError):client.search('PC','en','all',market='ZZ')
 
     def test_csv_one_video_is_not_recent_average(self):
         c=import_csv('name,platform,source_url,provenance,video_url,video_title,views\nTest,TikTok,https://tiktok.com/@test,Fixture,https://tiktok.com/@test/video/1,Sample,5000','fixture.csv')['creators'][0]
@@ -96,3 +96,23 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(c['videos'][0]['views'],5000)
 
 if __name__=='__main__':unittest.main()
+
+from server import APIError
+
+class SubscriberGateTests(unittest.TestCase):
+    def test_floor_cap_and_search_order(self):
+        client=YouTube('test'); calls=[]
+        def get(endpoint,**kwargs):
+            calls.append((endpoint,kwargs))
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':str(n)}} for n in [799,800,1000,1001]]}
+            if endpoint=='channels':return {'items':[{'id':str(n),'statistics':{'subscriberCount':str(n)},'snippet':{'title':'Fixture','country':'JP'}} for n in [799,800,1000,1001]]}
+            self.fail('Wrong country must be rejected before upload retrieval')
+        client.get=get
+        result=client.search('pc','fi','all',market='FI',max_subscribers=1000)
+        self.assertEqual(result['funnel']['subscribers'],2)
+<<<<<<< HEAD
+        self.assertEqual(calls[0][1]['order'],'relevance')
+=======
+        self.assertEqual(calls[0][1]['order'],'viewCount')
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
+        with self.assertRaises(APIError):client.search('pc','fi','all',max_subscribers=799)
