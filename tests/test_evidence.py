@@ -80,15 +80,15 @@ class EvidenceTests(unittest.TestCase):
             self.fail('Must not enrich mismatched countries')
         client.get=get
         result=client.search('speldator','sv','all',market='SE')
-        self.assertEqual(result['creators'],[]);self.assertEqual(result['excluded']['countryMismatch'],3)
-        self.assertEqual(result['excluded']['countryUnknown'],1);self.assertEqual(calls,['search','channels'])
+        self.assertEqual([c['eligibility'] for c in result['creators']],['review']);self.assertEqual(result['excluded']['countryMismatch'],3)
+        self.assertEqual(result['excluded']['countryUnknown'],0);self.assertEqual(calls,['search','channels'])
 
     def test_market_in_cache_identity_and_unsupported_market_fails(self):
         client=YouTube('test');client.get=lambda endpoint,**params:{'items':[]}
         self.assertFalse(client.search('PC','en','all',market='FI')['cached'])
         self.assertFalse(client.search('PC','en','all',market='DE')['cached'])
         self.assertTrue(client.search('PC','en','all',market='FI')['cached'])
-        with self.assertRaises(APIError):client.search('PC','en','all',market='EE')
+        with self.assertRaises(APIError):client.search('PC','en','all',market='ZZ')
 
     def test_csv_one_video_is_not_recent_average(self):
         c=import_csv('name,platform,source_url,provenance,video_url,video_title,views\nTest,TikTok,https://tiktok.com/@test,Fixture,https://tiktok.com/@test/video/1,Sample,5000','fixture.csv')['creators'][0]

@@ -1,6 +1,6 @@
-export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',GB:'United Kingdom'};
-export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',en:'English'};
-export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',GB:'en'};
+export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',GB:'United Kingdom',EE:'Estonia',HU:'Hungary'};
+export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',en:'English',et:'Estonian',hu:'Hungarian'};
+export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',GB:'en',EE:'et',HU:'hu'};
 export const niches=['Budget gaming','PC building','Refurbished tech','PC performance','Gaming'];
 const terms={
  fi:['halpa pelikone | budjetti pelitietokone','pelikoneen kasaus | tietokoneen rakentaminen','käytetty pelikone | kunnostettu tietokone','pelikone testi | näytönohjain vertailu','pelikone | PC pelaaminen','vanhan tietokoneen myynti | pelikone päivitys'],
@@ -8,18 +8,20 @@ const terms={
  fr:['PC gamer pas cher | PC gaming petit budget','monter un PC gamer | assemblage PC','PC gamer reconditionné | PC occasion','test PC gamer | comparatif carte graphique','PC gamer | jeux PC','vendre son PC | améliorer PC'],
  nl:['goedkope game pc | budget gaming pc','game pc bouwen | computer samenstellen','refurbished gaming pc | tweedehands computer','gaming pc test | videokaart vergelijking','game pc | pc gaming','oude pc verkopen | pc upgraden'],
  sv:['billig speldator | budget gaming dator','bygga speldator | datorbygge','begagnad speldator | rekonditionerad dator','speldator test | grafikkort jämförelse','speldator | PC spel','sälja gammal dator | uppgradera dator'],
- en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade']};
-// YouTube's | operator binds single words, so multi-word alternatives are quoted as phrases.
+ en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade'],
+ et:['odav mänguriarvuti | soodne mänguarvuti','arvuti kokkupanek | mänguriarvuti ehitamine','kasutatud mänguriarvuti | taastatud arvuti','mänguriarvuti test | videokaardi võrdlus','mänguriarvuti | arvutimängud','arvuti müük | arvuti uuendamine'],
+ hu:['olcsó gamer PC | olcsó játékos számítógép','PC építés | számítógép összeszerelés','használt gamer PC | felújított számítógép','gamer PC teszt | videokártya összehasonlítás','gamer PC | számítógépes játék','számítógép eladás | PC fejlesztés']
+};
 const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
 export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
 // Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
 // a trailing $ requires the whole word.
 const keywordGroups={
- 'Budget gaming':['budget','cheap','halpa','halv','budjet','günstig','pas cher','goedkop','goedkoop','billig','value'],
- 'PC building':['build','kasau','kasat','kasas','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','samenstel','bygga','bygge'],
- 'Refurbished tech':['refurb','used$','second hand','secondhand','käytet','kunnoste','gebraucht','generalüberholt','recondition','occasion$','tweedehands','begagnad','rekondition'],
- 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämför','prestanda','leistung'],
- 'Gaming':['gaming','gamer','pelikone','pelitieto','pelaami','speldator','game pc','pc spiel']};
+ 'Budget gaming':['budget','cheap','halpa','halv','budjet','günstig','pas cher','goedkop','goedkoop','billig','value','odav','soodne','olcsó'],
+ 'PC building':['build','kasau','kasat','kasas','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','samenstel','bygga','bygge','kokkupan','ehitami','építés','összeszerel'],
+ 'Refurbished tech':['refurb','used$','second hand','secondhand','käytet','kunnoste','gebraucht','generalüberholt','recondition','occasion$','tweedehands','begagnad','rekondition','kasutatud','taastatud','használt','felújított'],
+ 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämför','prestanda','leistung','võrdlus','teszt','összehasonl'],
+ 'Gaming':['gaming','gamer','pelikone','pelitieto','pelaami','speldator','game pc','pc spiel','mänguriarvuti','mänguarvuti','arvutimäng','számítógép']};
 const sellerWords=['sell$','sells$','selling','seller','myynt','myyd','verkauf','verkaufen','vendre','verkop','sälja','upgrad','päivit','aufrüst'];
 const matchers=new Map();
 function matcher(word){if(!matchers.has(word)){const whole=word.endsWith('$'),stem=whole?word.slice(0,-1):word,esc=stem.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -49,6 +51,10 @@ export function viewSubscriberRatio(c){
 }
 const languageCode=value=>{const text=String(value||'').toLowerCase();return Object.entries(languages).find(([,name])=>name.toLowerCase()===text)?.[0]||text.split('-')[0]};
 export function languageStatus(c,language){
+ if(c.sourceType==='live'&&language!=='en'&&c.market_match_tier){
+  const accepted=c.eligibility==='match';
+  return {accepted,conflict:false,positive:accepted?1:0,sampleSize:(c.videos||[]).length,hints:[c.language_detected||'Unknown'],value:accepted?100:null};
+ }
  const videos=c.sourceType==='live'?(c.videos||[]).filter(v=>v.recentUpload&&(!v.broadcastStatus||v.broadcastStatus==='none')).sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt))).slice(0,5):(c.videos||[]);
  const hints=videos.flatMap(v=>[v.audioLanguage,v.metadataLanguage,...(!v.audioLanguage&&!v.metadataLanguage?[v.language]:[])]).filter(Boolean);
  if(c.language)hints.push(c.language);
@@ -95,14 +101,46 @@ export function unknowns(c){return [...(contentLanguage(c)==='Unknown'?['Content
 export function fitReason(c,config,e){return `${e.relevant.length}/${e.total} recent evidence videos contain ${config.goal==='sellers'?'niche or upgrade/resale':'niche'} keywords. ${e.languageHints.length?'Language metadata: '+e.languageHints.join(', ')+'.':'Language unverified; search language is only a hint.'} ${e.age===null?'Posting recency unknown.':'Latest supplied upload: '+e.age+' days ago.'}`}
 export function angle(c,config){return config.goal==='sellers'?'An old-rig audit: inspect condition and components, document testing, then compare keeping, upgrading and selling. Confirm Prenew’s actual acceptance criteria and selling process; do not promise a payout.':'An honest refurbished-PC test: inspect condition, explain testing and measured game performance, compare total value, and ask what the warranty actually covers. Confirm exact specifications, prices and warranty terms with Prenew before recording.';}
 export function csvCell(value){let s=String(value??'');if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
+const prenewColumns=['Creator key','Market','Country','Creator / channel','Agency','Year-week','Platform','Niche / content','YT subscribers','YT views / video','TikTok followers','TikTok views / video'];
+function isoWeek(date=new Date()){
+ const day=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+ day.setUTCDate(day.getUTCDate()+4-(day.getUTCDay()||7));
+ const year=day.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));
+ return `${year}-${String(Math.ceil((((day-first)/86400000)+1)/7)).padStart(2,'0')}`;
+}
+function prenewOverview(c,config,views,p){
+ const history=c.prenewHistory||[],last=c.prenewImport||{};
+ const supplied=key=>[...history].reverse().map(row=>row[key]).find(value=>String(value??'').trim())||last[key]||null;
+ const countryCodes=Object.fromEntries(Object.entries(markets).map(([code,name])=>[name.toLowerCase(),code]));
+ const rawCountry=String(c.country||supplied('Country')||'').trim();
+ const directCountry=markets[rawCountry.toUpperCase()]?rawCountry.toUpperCase():countryCodes[rawCountry.toLowerCase()];
+ const explicitMarket=String(c.market||supplied('Market')||'').trim().toUpperCase();
+ // Estonian and Hungarian are explicit single-market language selections in this app.
+ const locale=String(c.contentLanguage||c.language||c.searchLanguage||'').toLowerCase().split('-')[0];
+ const languageMarket=locale==='et'?'EE':locale==='hu'?'HU':null;
+ const market=directCountry||(markets[explicitMarket]?explicitMarket:null)||languageMarket||'Unknown';
+ const country=rawCountry?(markets[rawCountry.toUpperCase()]||rawCountry):(languageMarket?markets[languageMarket]:(markets[explicitMarket]||'Unknown'));
+ const platform=String(c.platform||supplied('Platform')||'Unknown').trim();
+ const hasYouTube=/youtube/i.test(platform),hasTikTok=/tiktok/i.test(platform);
+ const formatted=value=>{if(value===null||value===undefined||value==='')return 'Unknown';const n=Number(String(value).replaceAll(',',''));return Number.isFinite(n)&&n>=0?new Intl.NumberFormat('en-US',{maximumFractionDigits:1}).format(n):String(value)};
+ const platformValue=(key,metric)=>{const claim=supplied(key);return formatted(claim??metric)};
+ const agency=supplied('Agency')||(/\bagency\s*:\s*([^;\n]+)/i.exec(String(c.contact?.value||''))||/\bagency\s*:\s*([^;\n]+)/i.exec(String(p?.notes||'')))?.[1]?.trim()||'';
+ return [c.name||'Unknown',market,country,c.name||'Unknown',agency,supplied('Year-week')||isoWeek(),platform,
+   supplied('Niche / content')||nicheLabel(c)||config.niche||'Unknown',
+   hasYouTube?platformValue('YT subscribers',c.platformMetrics?.YouTube?.followers??c.followers):'',
+   hasYouTube?platformValue('YT views / video',c.platformMetrics?.YouTube?.viewsClaim??views.average):'',
+   hasTikTok?platformValue('TikTok followers',c.platformMetrics?.TikTok?.followers??(hasYouTube?null:c.followers)):'',
+   hasTikTok?platformValue('TikTok views / video',c.platformMetrics?.TikTok?.viewsClaim??(hasYouTube?null:views.average)):''];
+}
 export function shortlistCSV(entries,config,weights){
- const headers=['name','platform','source_type','source_url','provenance','fetched_or_imported_at','discovery_market','search_language','query','country','country_source','content_language','language_evidence','language_evidence_urls','verified_audience_country','audience_claim','audience_claim_source','subscribers_followers','recent_average_views','recent_median_views','view_subscriber_ratio','views_window_days','views_sample_size','views_window_start','views_window_end','views_last_checked','views_status','views_sample_limited','views_missing_counts','views_method','views_video_urls','views_video_counts','niche_game_hardware','niche_evidence_urls','public_contact','contact_type','contact_source','review','notes','scoring_niche','scoring_goal','scoring_language','scoring_weights','score','topic_score','language_score','recency_score','views_score','engagement_score','known_factors','evidence_urls','evidence_titles','evidence_dates','missing_data_flags','collaboration_angle','outreach_status'];
+ const headers=['name','platform','source_type','source_url','provenance','fetched_or_imported_at','discovery_market','search_language','query','country','country_source','content_language','language_evidence','language_evidence_urls','verified_audience_country','audience_claim','audience_claim_source','subscribers_followers','recent_average_views','recent_median_views','view_subscriber_ratio','views_window_days','views_sample_size','views_window_start','views_window_end','views_last_checked','views_status','views_sample_limited','views_missing_counts','views_method','views_video_urls','views_video_counts','niche_game_hardware','niche_evidence_urls','public_contact','contact_type','contact_source','review','notes','scoring_niche','scoring_goal','scoring_language','scoring_weights','score','topic_score','language_score','recency_score','views_score','engagement_score','known_factors','evidence_urls','evidence_titles','evidence_dates','missing_data_flags','collaboration_angle','outreach_status','prenew_relevance','community_discussion_share','community_sample_size','community_checked_at','community_evidence','evidence_coverage','prenew_original_record','market_match_tier','language_detected','language_confidence','local_market_evidence','failure_reasons','market_reason_code','is_lingua_franca','language_signals'];
  const lines=entries.map(({creator:c,pipeline:p})=>{
   const e=evidence(c,config,weights),v=viewSummary(c),median=medianViews(c),ratio=viewSubscriberRatio(c),sample=(c.videos||[]).filter(video=>v.videoIds.includes(video.id)),niches=nicheEvidence(c);
   const languageEvidence=c.languageEvidence?`${c.languageEvidence.positiveVideos}/${c.languageEvidence.sampleSize} recent videos match; ${c.languageEvidence.method} ${(c.languageEvidence.videos||[]).map(video=>`${video.videoId}: audio=${video.audioLanguage||'Unknown'}, metadata=${video.metadataLanguage||'Unknown'}`).join(' | ')}`:c.sourceType==='imported'?'Uploader-supplied language; unverified':'Unknown';
-  return [c.name,c.platform,c.sourceType||'demo',c.sourceUrl||'Unknown',c.source,c.fetchedAt||'Unknown',markets[c.market]||c.market||'Unknown',c.searchLanguage||'Unknown',c.query||'',countryName(c),countrySource(c),contentLanguage(c),languageEvidence,(c.languageEvidence?.videos||[]).map(x=>x.url).join(' | ')||'Unknown','Unknown',c.audienceCountry||'Unknown',c.audienceSource||'Unknown',c.followers??'Unknown',v.average??'Unknown',median??'Unknown',ratio.value??'N/A',v.windowDays??'Unknown',v.sampleSize,v.windowStart||'Unknown',v.windowEnd||'Unknown',v.checkedAt||'Unknown',v.status,v.sampleLimited,v.missingViewCount??'Unknown',v.method,sample.map(x=>x.url).join(' | '),sample.map(x=>x.views).join(' | '),nicheLabel(c),[...new Set(niches.flatMap(x=>x.videos.map(video=>video.url)))].join(' | '),c.contact?.value||'No public contact found',c.contact?.kind||'Unknown',c.contact?.sourceUrl||'Unknown',p.review||'Unreviewed',p.notes||'',config.niche,config.goal,config.language,JSON.stringify(weights),e.score,...Object.values(e.factors),e.known,(c.videos||[]).map(x=>x.url).join(' | '),(c.videos||[]).map(x=>x.title).join(' | '),(c.videos||[]).map(x=>x.publishedAt||'Unknown').join(' | '),unknowns(c).join('; '),angle(c,config),p.status].map(csvCell).join(',');
+  const metadata=[c.name,c.platform,c.sourceType||'demo',c.sourceUrl||'Unknown',c.source,c.fetchedAt||'Unknown',markets[c.market]||c.market||'Unknown',c.searchLanguage||'Unknown',c.query||'',countryName(c),countrySource(c),contentLanguage(c),languageEvidence,(c.languageEvidence?.videos||[]).map(x=>x.url).join(' | ')||'Unknown','Unknown',c.audienceCountry||'Unknown',c.audienceSource||'Unknown',c.followers??'Unknown',v.average??'Unknown',median??'Unknown',ratio.value??'N/A',v.windowDays??'Unknown',v.sampleSize,v.windowStart||'Unknown',v.windowEnd||'Unknown',v.checkedAt||'Unknown',v.status,v.sampleLimited,v.missingViewCount??'Unknown',v.method,sample.map(x=>x.url).join(' | '),sample.map(x=>x.views).join(' | '),nicheLabel(c),[...new Set(niches.flatMap(x=>x.videos.map(video=>video.url)))].join(' | '),c.contact?.value||'No public contact found',c.contact?.kind||'Unknown',c.contact?.sourceUrl||'Unknown',p.review||'Unreviewed',p.notes||'',config.niche,config.goal,config.language,JSON.stringify(weights),e.score,...Object.values(e.factors),e.known,(c.videos||[]).map(x=>x.url).join(' | '),(c.videos||[]).map(x=>x.title).join(' | '),(c.videos||[]).map(x=>x.publishedAt||'Unknown').join(' | '),unknowns(c).join('; '),angle(c,config),p.status,e.factors.topic,c.community?.discussionShare??'Not assessed',c.community?.sampleSize??0,c.community?.checkedAt||'',(c.community?.examples||[]).map(x=>x.url).join(' | '),dimensions(c,config).confidence+'/5',c.prenewImport?JSON.stringify(c.prenewHistory||[c.prenewImport]):''];
+  return [...prenewOverview(c,config,v,p),...metadata,c.market_match_tier??'',c.language_detected??'',c.language_confidence??'',(c.local_market_evidence||[]).join(' | '),(c.failure_reasons||[]).join(' | '),c.market_reason_code??'',c.is_lingua_franca??'',JSON.stringify(c.language_signals||{})].map(csvCell).join(',');
  });
- return '\ufeff'+[headers.map(csvCell).join(','),...lines].join('\r\n');
+ return '\ufeff'+[[...prenewColumns,...headers].map(csvCell).join(','),...lines].join('\r\n');
 }
 
 // Comparison uses observed metrics only; missing values never become zero.
@@ -130,4 +168,41 @@ export function comparisonMetrics(c){
  }
  const views=viewSummary(c);
  return {views:{value:views.average,count:views.sampleSize},likes:average('likes'),comments:average('comments'),engagement,engagementSamples:samples.length,keywords:[...keywords].sort(),themes,total:videos.length};
+}
+
+export function dimensions(c,config){
+ const e=evidence(c,config),v=viewSummary(c),community=c.community;
+ const checks=[{label:'Recent view sample (3+)',known:v.sampleSize>=3&&v.average!=null},{label:'Matching language evidence',known:e.factors.language===100},{label:'Creator country supplied',known:!!c.country},{label:'Community sample (20+ comments / 2+ videos)',known:community?.sampleSize>=20&&community?.videoCount>=2},{label:'Public contact supplied',known:!!c.contact}];
+ return {relevance:e.factors.topic,community:community?.discussionShare??null,confidence:checks.filter(x=>x.known).length,checks};
+}
+
+// Sorting keys only: ranges are never converted into measured averages.
+export function importedMetricKey(raw){
+ const text=String(raw??'').trim().replace(/[\s,]/g,'').replace(/[–—]/g,'-');
+ const number=value=>{const match=/^(\d+(?:\.\d+)?)([kKmM]?)$/.exec(value);return match?Number(match[1])*({k:1000,m:1000000}[match[2].toLowerCase()]||1):null};
+ if(/^[<≤]/.test(text))return number(text.slice(1))===null?null:0;
+ if(/^[>≥]/.test(text))return number(text.slice(1));
+ const range=/^(\d+(?:\.\d+)?[kKmM]?)-(\d+(?:\.\d+)?[kKmM]?)$/.exec(text);
+ if(range){let lower=range[1];if(!/[kKmM]$/.test(lower)&&/[kKmM]$/.test(range[2]))lower+=range[2].slice(-1);const lo=number(lower),hi=number(range[2]);return lo!==null&&hi!==null&&lo<=hi?lo:null;}
+ return number(text.replace(/\+$/,''));
+}
+export function importedPlatformNames(value){return String(value||'').split(/\s*(?:\+|,|\/|&|\band\b)\s*/i).map(x=>x.trim()).filter(Boolean)}
+export function filterImportedCreators(records,filters={}){
+ const fields={country:'Country',market:'Market',platform:'Platform',niche:'Niche / content'};
+ const text=String(filters.search||'').trim().toLocaleLowerCase();
+ const selected=records.filter(c=>{
+  const row=c.prenewImport;
+  if(!row)return false;
+  if(text&&![row['Creator / channel'],row['Creator key'],row['Niche / content']].some(v=>String(v||'').toLocaleLowerCase().includes(text)))return false;
+  return Object.entries(fields).every(([key,field])=>!filters[key]||(key==='platform'?importedPlatformNames(row[field]).some(v=>v.toLowerCase()===filters[key].toLowerCase()):(row[field]||'Unknown')===filters[key]));
+ });
+ const field=filters.sort||'Creator / channel',direction=filters.direction==='desc'?-1:1;
+ const numeric=['YT subscribers','YT views / video','TikTok followers','TikTok views / video'].includes(field);
+ return selected.sort((a,b)=>{
+  const av=numeric?importedMetricKey(a.prenewImport[field]):a.prenewImport[field]?.trim()||null;
+  const bv=numeric?importedMetricKey(b.prenewImport[field]):b.prenewImport[field]?.trim()||null;
+  if(av===null&&bv!==null)return 1;if(bv===null&&av!==null)return -1;
+  const order=av===null?0:numeric?av-bv:av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'});
+  return order*direction||String(a.name).localeCompare(String(b.name));
+ });
 }
