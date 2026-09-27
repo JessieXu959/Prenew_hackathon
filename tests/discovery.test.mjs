@@ -24,7 +24,11 @@ assert.match(cards,/Latest upload: /);
 assert.doesNotMatch(cards,/recent evidence videos contain/);
 assert.doesNotMatch(cards,/Language metadata:/);
 assert.deepEqual(filtered(state).map(c=>c.id),['good']);
+<<<<<<< HEAD
 for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et']]){
+=======
+for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et'],['NL','nl']]){
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
  const local={...creator,id:'local',market,country:market,contentLanguage:'en',eligibility:'match',market_match_tier:2,language_detected:'en',language_confidence:.65,local_market_evidence:['channel country: '+market,'local link: https://example.'+market.toLowerCase()],videos:videos.map(v=>({...v,audioLanguage:'en',metadataLanguage:'en',language:'en'}))};
  assert.deepEqual(filtered(stateFor({local},{market,language})).map(c=>c.id),['local'],`${market} local English creator must reach matching candidates`);
  const foreign={...local,country:'US'};
@@ -65,7 +69,11 @@ const capped=stateFor({low:{...creator,id:'low',followers:799},edge:{...creator,
 assert.deepEqual(filtered(capped).map(c=>c.id).sort(),['cap','edge']);
 const reach=stateFor({a:{...creator,id:'a',followers:2000},b:{...creator,id:'b',followers:800,recentViewStats:{...creator.recentViewStats,average:9000}}});
 assert.deepEqual(filtered(reach).map(c=>c.id),['b','a']);
+<<<<<<< HEAD
 assert.match(researchHTML(reach),/How Community Engagement is Calculated/);
+=======
+assert.match(researchHTML(reach),/How community engagement is calculated/);
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
 
 const reviewState=stateFor({unknownCountry:records.unknownCountry,unknownLanguage:records.unknownLanguage,mixed:records.mixed},{bucket:'review'});
 assert.deepEqual(filtered(reviewState).map(c=>c.id).sort(),['unknownCountry','unknownLanguage']);

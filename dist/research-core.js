@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 export const markets={FI:'Finland',DE:'Germany',FR:'France',SE:'Sweden',GB:'United Kingdom',EE:'Estonia',HU:'Hungary'};
 export const languages={fi:'Finnish',de:'German',fr:'French',sv:'Swedish',en:'English',et:'Estonian',hu:'Hungarian'};
 export const defaults={FI:'fi',DE:'de',FR:'fr',SE:'sv',GB:'en',EE:'et',HU:'hu'};
+=======
+export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',GB:'United Kingdom',EE:'Estonia',HU:'Hungary'};
+export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',en:'English',et:'Estonian',hu:'Hungarian'};
+export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',GB:'en',EE:'et',HU:'hu'};
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
 export const niches=['Budget gaming','PC building','Refurbished tech','PC performance','Gaming'];
 const terms={
  fi:['halpa pelikone | budjetti pelitietokone','pelikoneen kasaus | tietokoneen rakentaminen','käytetty pelikone | kunnostettu tietokone','pelikone testi | näytönohjain vertailu','pelikone | PC pelaaminen','vanhan tietokoneen myynti | pelikone päivitys'],
@@ -11,7 +17,12 @@ const terms={
  et:['odav mänguriarvuti | soodne mänguarvuti','arvuti kokkupanek | mänguriarvuti ehitamine','kasutatud mänguriarvuti | taastatud arvuti','mänguriarvuti test | videokaardi võrdlus','mänguriarvuti | arvutimängud','arvuti müük | arvuti uuendamine'],
  hu:['olcsó gamer PC | olcsó játékos számítógép','PC építés | számítógép összeszerelés','használt gamer PC | felújított számítógép','gamer PC teszt | videokártya összehasonlítás','gamer PC | számítógépes játék','számítógép eladás | PC fejlesztés']
 };
+<<<<<<< HEAD
 export function localizedQuery(config){return terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0]}
+=======
+const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
+export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
 // Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
 // a trailing $ requires the whole word.
 const keywordGroups={

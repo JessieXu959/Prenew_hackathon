@@ -21,6 +21,10 @@ class MarketProfile:
 
 PROFILES = {
     p.code: p for p in (
+<<<<<<< HEAD
+=======
+        MarketProfile('NL', ('nl',), ('NL', 'BE'), retailers=('tweakers.net', 'megekko.nl', 'alternate.nl', 'coolblue.nl', 'azerty.nl'), tlds=('.nl',), anchors=('nederland', 'amsterdam', 'rotterdam', 'dutch', 'nl/be'), stopwords=('de', 'het', 'een', 'van', 'voor', 'met', 'zijn', 'deze', 'dat', 'mijn', 'onze', 'hoe', 'waarom')),
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         MarketProfile('FI', ('fi',), ('FI',), retailers=('verkkokauppa.com', 'jimms.fi', 'hinta.fi'), tlds=('.fi',), anchors=('suomi', 'suomalainen', 'helsinki', 'tampere', 'turku'), stopwords=('ja', 'on', 'että', 'minä', 'meidän', 'tämä', 'miten', 'miksi', 'kanssa', 'uusi')),
         MarketProfile('SE', ('sv',), ('SE',), retailers=('inet.se', 'webhallen.com', 'komplett.se', 'prisjakt.nu'), tlds=('.se',), anchors=('sverige', 'svensk', 'stockholm', 'göteborg', 'malmö'), stopwords=('och', 'är', 'det', 'med', 'för', 'min', 'vår', 'den', 'hur', 'varför', 'inte')),
         MarketProfile('EE', ('et',), ('EE',), retailers=('arvutitark.ee', 'hinnavaatlus.ee', '1a.ee'), tlds=('.ee',), anchors=('eesti', 'eestlane', 'tallinn', 'tartu'), stopwords=('ja', 'on', 'see', 'minu', 'meie', 'kuidas', 'miks', 'koos', 'uus', 'eesti')),
