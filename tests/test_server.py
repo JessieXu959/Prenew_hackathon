@@ -21,6 +21,24 @@ class ServerTests(unittest.TestCase):
         with patch('server.time.time',return_value=1121), patch('server.urlopen',return_value=io.BytesIO(b'{"items":[]}')):
             self.assertEqual(client.get('search',q='pc'),{'items':[]})
 
+    def test_early_filter_and_batched_videos(self):
+        client=YouTube('test'); calls=[]
+        def transport(endpoint, **args):
+            calls.append((endpoint,args))
+            if endpoint=='search': return {'items':[{'snippet':{'channelId':c}} for c in ['small','a','b']]}
+            if endpoint=='channels': return {'items':[{'id':c,'snippet':{'title':c},'statistics':{'subscriberCount':str(n)},'contentDetails':{'relatedPlaylists':{'uploads':c}}} for c,n in [('small',500),('a',501),('b',1000)]]}
+            if endpoint=='playlistItems': return {'items':[{'contentDetails':{'videoId':args['playlistId']}}]}
+            if endpoint=='videos': return {'items':[{'id':c,'snippet':{'title':'budget PC','publishedAt':'2026-09-01','defaultAudioLanguage':'fi'},'statistics':{'viewCount':str(n)}} for c,n in [('a',5000),('b',5001)]]}
+        client.get=transport
+        result=client.search('pc','fi','all')
+        self.assertEqual([c['channelId'] for c in result['creators']],['b'])
+        self.assertEqual([a['playlistId'] for e,a in calls if e=='playlistItems'],['a','b'])
+        self.assertEqual([a['id'] for e,a in calls if e=='videos'],['a,b'])
+        self.assertEqual(result['funnel'],dict(videoMatches=3,channels=3,subscribers=2,size=2,language=2,views=1))
+        self.assertTrue(client.search('pc','fi','all')['cached'])
+        self.assertFalse(client.search('pc','fi','all',min_average_views=4999)['cached'])
+        with self.assertRaises(APIError): client.search('pc','fi','all',min_subscribers='bad')
+
     def test_missing_key(self):
         with self.assertRaisesRegex(APIError,'not configured'):
             YouTube('').search('pelikone','fi','all')
@@ -53,12 +71,12 @@ class ServerTests(unittest.TestCase):
             if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-channel'}}]*2,'nextPageToken':'next-fixture'}
             if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'synthetic01'}}]}
-            if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}}]}
+            if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'6000','commentCount':'4'},'contentDetails':{}}]}
         client.get=transport
         response=client.search('halpa pelikone','fi','nano')
         self.assertEqual(len(response['creators']),1)
         c=response['creators'][0]
-        self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
+        self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],6000)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
         self.assertEqual(response['nextPageToken'],'next-fixture')
         self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
@@ -69,6 +87,15 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c['videos'][0]['matchedSearch'],False)
         client.search('halpa pelikone','fi','nano','next-fixture')
         self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
+        calls.clear()
+        channel_result=client.search('halpa pelikone','fi','nano',mode='channel')
+        self.assertFalse(channel_result['cached'])
+        self.assertEqual(calls[0][1]['type'],'channel')
+        self.assertNotIn('publishedAfter',calls[0][1])
+        self.assertEqual(len(channel_result['creators']),1)
+        self.assertTrue(client.search('halpa pelikone','fi','nano',mode='channel')['cached'])
+        with self.assertRaises(APIError): client.search('pc','fi','all',mode='invalid')
+
 
     def test_search_keeps_matched_video_first(self):
         client=YouTube('test');video_ids=[]
@@ -78,7 +105,7 @@ class ServerTests(unittest.TestCase):
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
             if endpoint=='videos':
                 video_ids.append(args['id'])
-                return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
+                return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{'viewCount':'6000'}} for x in reversed(args['id'].split(','))]}
         client.get=transport
         videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
         self.assertEqual(video_ids,['matched0001,latest00001'])

@@ -40,3 +40,10 @@ const ranking={research:{source:'imported',size:'all',language:'fi',niche:'Budge
 assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);
 assert.equal(ranking.researchWeights.language,0);
 console.log('Ranking checks passed: no small-creator priority, language weight removed.');
+
+ranking.records.small.videos=[video];
+ranking.records.large.videos=[{...video,title:'Pasta recipe'}];
+assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);
+ranking.records.large.followers=ranking.records.small.followers;
+assert.deepEqual(filtered(ranking).map(c=>c.id),['small','large']);
+console.log('Largest-first sorting and evidence-fit tie-break checks passed.');

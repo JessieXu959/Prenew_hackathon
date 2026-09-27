@@ -11,7 +11,8 @@ const terms={
  en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade']};
 // YouTube's | operator binds single words, so multi-word alternatives are quoted as phrases.
 const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
-export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
+const channelTerms={fi:'pelikone | tietokone | tietotekniikka | PC pelaaminen',de:'Gaming PC | PC Hardware | Computer Technik',fr:'PC gamer | informatique | materiel PC',nl:'game pc | computer hardware | computer bouwen',sv:'speldator | datorbygge | datorteknik',en:'gaming PC | PC hardware | computer reviews'};
+export function localizedQuery(config){if(config.mode==='channel')return quote(channelTerms[config.language]||channelTerms.en);return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
 // Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
 // a trailing $ requires the whole word.
 const keywordGroups={
