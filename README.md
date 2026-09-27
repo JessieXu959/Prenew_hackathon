@@ -16,22 +16,28 @@ Open http://127.0.0.1:4173/. Enable YouTube Data API v3 for your key. The key st
 
 ## Discover and inspect
 
-1. Choose a **target country / market**, language, niche and optional size or metric limits. Finland, Germany, France, the Netherlands, Sweden and the UK are supported with localized queries. Changing market selects its default language; you can then change the language separately.
-2. Edit the query or use the localized suggestion, then **Search YouTube**. One click requests one page of up to 25 video matches. A region or language search hint does not establish creator or audience location.
-3. Inspect the creator's declared country and its source, content language evidence, subscribers, recent average views, niche/game/hardware labels, and any explicit public contact. Missing information is shown as **Unknown** or **No public contact found**.
-4. Open linked videos, save to the shortlist, record a review and notes, then export CSV. Scores are transparent triage heuristics, not trust judgments or performance promises.
+1. Choose the target market, language and niche. Finland, Sweden and **Estonia** have native query families; Germany, France, the Netherlands and the UK remain supported.
+2. Use **Local discovery preset** for recent-video search, all creator sizes, 800 minimum subscribers, no subscriber cap and no average-view minimum. New workspaces use recent-video search and no view minimum; existing explicit settings are preserved.
+3. Search once to collect **up to 200 unique channel IDs before filters**. Alternatives separated by `|` are searched independently in round-robin order. Retrieval always uses relevance; display sorting by views/subscribers/fit happens after eligibility checks.
+4. Inspect the funnel from raw matches to unique channels, subscribers, size, declared country, language, average views and the final current-niche/display counts.
+5. Review source videos, save candidates, record notes and export CSV. Scores are triage heuristics, not evidence of audience geography, trust or predicted sales.
 
-New workspaces default both numeric limits to 0 (disabled), so small creators are discoverable. Existing saved filter settings are preserved. Positive limits retain the existing **greater than** behavior and exclude unknown metrics. Prenew's typical YouTube ranges of 50k–250k subscribers / 20k–100k views and TikTok 4k+ followers are reference examples, not eligibility thresholds.
+Search uses 50 matches per API page, up to eight query alternatives and **12 search-page requests per action**. The search stops at 200 unique channels, exhausted results or the request budget, and reports which occurred. Overlapping videos and queries are deduplicated by channel ID; channel/video detail calls are batched at 50 IDs. Small or sparse queries can return fewer than 200. This does not promise 200 qualifying local creators. The per-server-run daily budget remains 40 search calls / 1,000 total API calls, and identical responses are cached for 30 minutes.
 
-## Conservative country and language checks
+Examples of query families:
+- Finland: `pelikone | pelitietokone | CS2 suomeksi | Fortnite suomeksi | Minecraft suomeksi`.
+- Sweden: `speldator | datorspel | CS2 svenska | Fortnite svenska | Minecraft svenska`.
+- Estonia: `mänguarvuti | arvutimängud | CS2 eesti keeles | Fortnite eesti | Minecraft eesti`.
 
-Live results must have a channel-declared country equal to the selected market. Missing or mismatched country is excluded. Up to five latest public, non-ongoing uploads are examined: at least three must be available, at least two must have matching audio/metadata language, and no inspected video or channel language may contradict the selected language. Locale variants such as `de-DE` match `de`.
+## Country, language and niche checks
 
-Audio language and title/description metadata language are retained separately. Titles and description excerpts are visible with source links for human review. An English game title, one old search hit, a channel tag alone, or a high score cannot override the gate. Text-only language inference and a “needs verification” candidate bucket are deliberately not implemented: this version retains a strict path and may miss valid multilingual or poorly annotated creators. It does not listen to videos or transcribe speech.
+A live channel must declare the selected country. Wrong or missing country stays excluded; search-region hints do not establish creator residence or audience geography.
 
-The browser also enforces country/language checks on saved live results. Changing market does not expose results from the previous market. Niche fit uses sampled uploads published within 90 days; old search-only matches cannot make unrelated current content pass. Imported records remain uploader claims and are separately labeled; known country/language contradictions are hidden.
+Language examines up to five latest public, non-ongoing uploads. At least three must be available, at least two must match, and no effective video language may conflict. **Audio-language metadata takes priority**. Title/description language is used only when audio language is missing; an English channel-title language cannot override Finnish, Swedish or Estonian video evidence. Missing evidence stays unknown. This is metadata evidence, not transcription or independently verified speech. Both audio and title-language fields remain visible.
 
-**Target market, channel-declared country, content language, and verified audience country are separate.** Audience geography stays unknown. Imported audience claims and source URLs are exported separately and are never upgraded to independent verification.
+Country/language checks also run on saved records. Niche eligibility and game labels now share CS2, Fortnite, Minecraft, Valorant and League of Legends vocabulary. Finnish, Swedish and Estonian hardware/build/refurbishment terms are included. Niche evidence must come from uploads published within 90 days; an old search-only match cannot establish current fit.
+
+Subscriber counts must be known and at least 800, or the chosen higher minimum. The optional subscriber maximum is inclusive. The optional average-view minimum retains the strictly-greater-than rule; 0 disables it. Imported records remain unverified uploader claims. Audience geography is never inferred from country or language.
 
 ## Recent average views
 

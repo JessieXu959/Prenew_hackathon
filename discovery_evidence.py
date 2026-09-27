@@ -2,7 +2,7 @@
 from datetime import datetime, timezone, timedelta
 import re
 
-MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'NL': 'nl', 'SE': 'sv', 'GB': 'en'}
+MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'NL': 'nl', 'SE': 'sv', 'EE': 'et', 'GB': 'en'}
 MIN_VIEW_SAMPLE = 3
 
 
@@ -39,28 +39,24 @@ def recent_view_summary(videos, checked_at, uploads_capped=False):
 
 
 def assess_language(channel_language, videos, language):
-    """Strict metadata gate; expose text for human review without guessing a language."""
+    """Prefer audio language; title metadata is only a fallback when audio is absent."""
     sample = sorted((v for v in videos if v.get('recentUpload') and
                      v.get('broadcastStatus', 'none') == 'none'),
                     key=lambda v: v.get('publishedAt') or '', reverse=True)[:5]
     normalize = lambda value: str(value or '').lower().split('-')[0]
     evidence, positive, conflicting = [], 0, False
-    channel_tag = normalize(channel_language)
-    if channel_tag and channel_tag != language:
-        conflicting = True
     for video in sample:
-        tags = [normalize(video.get(key)) for key in ('audioLanguage', 'metadataLanguage')]
-        tags = [tag for tag in tags if tag]
-        # Retain support for snapshots carrying only the old combined language field.
-        if not tags and video.get('language'):
-            tags = [normalize(video['language'])]
-        mismatch = any(tag != language for tag in tags)
-        matches = language in tags and not mismatch
+        audio = normalize(video.get('audioLanguage'))
+        metadata = normalize(video.get('metadataLanguage'))
+        tag = audio or metadata or normalize(video.get('language'))
+        mismatch = bool(tag and tag != language)
+        matches = tag == language
         conflicting |= mismatch
         positive += int(matches)
         evidence.append({'videoId': video['id'], 'url': video['url'], 'title': video['title'],
                          'audioLanguage': video.get('audioLanguage'),
                          'metadataLanguage': video.get('metadataLanguage'),
+                         'basis': 'audio' if audio else 'metadata' if tag else 'unknown',
                          'textExcerpt': video.get('description', '')[:240],
                          'matches': matches, 'mismatch': mismatch})
     # One search hit or a channel-level tag cannot establish the channel's recent language.
@@ -68,7 +64,7 @@ def assess_language(channel_language, videos, language):
     return {'accepted': accepted, 'language': language if accepted else None,
             'status': 'match' if accepted else 'mismatch' if conflicting else 'insufficient',
             'positiveVideos': positive, 'sampleSize': len(sample), 'videos': evidence,
-            'method': 'Strict metadata: inspect up to five latest uploads; at least three inspected, two matching, no conflicting channel/audio/metadata language. Text is available for manual review.'}
+            'method': 'Inspect up to five latest uploads; at least three inspected, two matching. Audio language takes priority; title/description language is a fallback. Conflicting effective video languages fail; channel-title language does not override video evidence. Missing evidence remains unknown.'}
 
 
 def public_contact(description, source_url):

@@ -51,7 +51,7 @@ class ServerTests(unittest.TestCase):
         client=YouTube('test');calls=[]
         def transport(endpoint,**args):
             calls.append((endpoint,args))
-            if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-channel'}}]*2,'nextPageToken':'next-fixture'}
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-channel'}}]*2,**({'nextPageToken':'next-fixture'} if not args.get('pageToken') else {})}
             if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY','country':'FI'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
             if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':vid}} for vid in ['synthetic01','synthetic02','synthetic03']]}
             if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'pelikone budjetti testi','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}} for vid in args['id'].split(',')]}
@@ -61,15 +61,17 @@ class ServerTests(unittest.TestCase):
         c=response['creators'][0]
         self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
-        self.assertEqual(response['nextPageToken'],'next-fixture')
+        self.assertIsNone(response['nextPageToken'])
+        self.assertEqual(response['discovery']['searchRequests'],2)
+        self.assertEqual(response['discovery']['uniqueChannels'],1)
         self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
         self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
-        self.assertEqual(len(calls),4)
+        self.assertEqual(len(calls),5)
         self.assertEqual(client.search('pc','sv','all')['creators'],[])
-        calls[:]=calls[:4]
+        calls.clear()
         self.assertEqual(c['videos'][0]['matchedSearch'],False)
         client.search('halpa pelikone','fi','nano','next-fixture')
-        self.assertEqual(calls[4][1]['pageToken'],'next-fixture')
+        self.assertEqual(calls[0][1]['pageToken'],'next-fixture')
 
     def test_search_keeps_matched_video_first(self):
         client=YouTube('test');video_ids=[]

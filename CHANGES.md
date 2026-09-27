@@ -1,4 +1,21 @@
-# Discovery evidence and market accuracy update
+# Nordic and Baltic discovery update
+
+Branch: `codex/nordic-baltic-discovery-200` · Base: `9b7e885`
+
+- Collect up to **200 unique channels per search action**, rotating through native query alternatives and paging automatically. Retrieval uses relevance; results are then sorted by the chosen performance metric.
+- Deduplicate channel IDs across pages and queries. Batch channel and video lookups at 50 IDs. Stop after 12 search-page requests and clearly report whether the target, results exhaustion or request budget ended retrieval.
+- Add Estonia / Estonian to discovery and campaign setup, with query families and niche/hardware vocabulary. Expand Finnish and Swedish query families to cover local hardware wording and localized game searches.
+- Prefer video audio-language metadata. English title or channel-description language no longer disqualifies otherwise consistent local audio. Missing language evidence and conflicting effective video languages still fail eligibility.
+- Share game keywords between labels and Gaming eligibility, so CS2/Fortnite/Minecraft content can qualify without generic English gaming keywords.
+- Default new workspaces to recent-video discovery with the average-view limit disabled. Add a Local discovery preset while retaining saved numeric preferences and the existing 800-subscriber floor/cap controls.
+- Show the complete retrieval/filter funnel, missing-country versus wrong-country exclusions, language conflicts versus missing evidence, and final current-niche/display counts.
+- Preserve the recently added median views and views/subscriber ratio in cards, details, comparison and CSV.
+
+Validation: 28 Python tests and both JavaScript suites pass, including the 200-unique-channel bound, duplicate pages, query rotation, 50-ID batching, request-budget stops, Estonia, game-only titles and audio-versus-title language conflicts. Live results are recorded in `NORDIC_VERIFICATION.md`.
+
+---
+
+# Earlier discovery evidence and market accuracy update
 
 Branch: `codex/discovery-evidence-market-accuracy`
 Base: `94dfad9` (`main`)

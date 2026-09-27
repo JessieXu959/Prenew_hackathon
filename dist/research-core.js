@@ -1,26 +1,30 @@
-export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',GB:'United Kingdom'};
-export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',en:'English'};
-export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',GB:'en'};
+export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',EE:'Estonia',GB:'United Kingdom'};
+export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',et:'Estonian',en:'English'};
+export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',EE:'et',GB:'en'};
 export const niches=['Budget gaming','PC building','Refurbished tech','PC performance','Gaming'];
 const terms={
- fi:['halpa pelikone | budjetti pelitietokone','pelikoneen kasaus | tietokoneen rakentaminen','käytetty pelikone | kunnostettu tietokone','pelikone testi | näytönohjain vertailu','pelikone | PC pelaaminen','vanhan tietokoneen myynti | pelikone päivitys'],
+ fi:['pelikone | pelitietokone | halpa pelikone | budjettipelikone','tietokoneen kasaus | pelikoneen kasaus | tietokoneen rakentaminen | pelikone','käytetty pelikone | kunnostettu tietokone | käytetty tietokone | pelikone','näytönohjain | pelikone testi | näytönohjain vertailu | prosessori testi','pelikone | pelitietokone | CS2 suomeksi | Fortnite suomeksi | Minecraft suomeksi','tietokoneen myynti | pelikone päivitys | tietokoneen päivitys | käytetty pelikone'],
  de:['günstiger Gaming PC | Budget Gaming PC','Gaming PC zusammenbauen | PC Eigenbau','gebrauchter Gaming PC | generalüberholter PC','Gaming PC Test | Grafikkarten Vergleich','Gaming PC | PC Spiele','alten PC verkaufen | Gaming PC aufrüsten'],
  fr:['PC gamer pas cher | PC gaming petit budget','monter un PC gamer | assemblage PC','PC gamer reconditionné | PC occasion','test PC gamer | comparatif carte graphique','PC gamer | jeux PC','vendre son PC | améliorer PC'],
  nl:['goedkope game pc | budget gaming pc','game pc bouwen | computer samenstellen','refurbished gaming pc | tweedehands computer','gaming pc test | videokaart vergelijking','game pc | pc gaming','oude pc verkopen | pc upgraden'],
- sv:['billig speldator | budget gaming dator','bygga speldator | datorbygge','begagnad speldator | rekonditionerad dator','speldator test | grafikkort jämförelse','speldator | PC spel','sälja gammal dator | uppgradera dator'],
+ sv:['speldator | billig speldator | budgetdator | bygga dator','datorbygge | bygga dator | bygga speldator | speldator','begagnad speldator | begagnad dator | rekonditionerad dator | speldator','grafikkort | speldator test | grafikkort jämförelse | processor test','speldator | datorspel | CS2 svenska | Fortnite svenska | Minecraft svenska','sälja dator | uppgradera dator | begagnad speldator | datorbygge'],
+ et:['mänguarvuti | odav mänguarvuti | soodne arvuti | arvuti kokkupanek','arvuti kokkupanek | arvuti ehitamine | mänguarvuti','kasutatud arvuti | taastatud arvuti | kasutatud mänguarvuti | mänguarvuti','videokaart | mänguarvuti test | protsessor | arvuti test','mänguarvuti | arvutimängud | CS2 eesti keeles | Fortnite eesti | Minecraft eesti','arvuti müük | arvuti uuendamine | kasutatud arvuti | mänguarvuti'],
  en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade']};
-// YouTube's | operator binds single words, so multi-word alternatives are quoted as phrases.
-const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
-export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
+// Each alternative is searched independently by the server, then channel IDs are merged.
+export function localizedQuery(config){return terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0]}
+const gameKeywords={
+ 'Counter-Strike / CS2':['counter-strike','counter strike','cs2$','csgo$'],Fortnite:['fortnite'],Minecraft:['minecraft'],Valorant:['valorant'],
+ 'League of Legends':['league of legends','leagueoflegends']
+};
 // Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
 // a trailing $ requires the whole word.
 const keywordGroups={
- 'Budget gaming':['budget','cheap','halpa','halv','budjet','günstig','pas cher','goedkop','goedkoop','billig','value'],
- 'PC building':['build','kasau','kasat','kasas','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','samenstel','bygga','bygge'],
- 'Refurbished tech':['refurb','used$','second hand','secondhand','käytet','kunnoste','gebraucht','generalüberholt','recondition','occasion$','tweedehands','begagnad','rekondition'],
- 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämför','prestanda','leistung'],
- 'Gaming':['gaming','gamer','pelikone','pelitieto','pelaami','speldator','game pc','pc spiel']};
-const sellerWords=['sell$','sells$','selling','seller','myynt','myyd','verkauf','verkaufen','vendre','verkop','sälja','upgrad','päivit','aufrüst'];
+ 'Budget gaming':['budget','cheap','halpa','halv','budjet','günstig','pas cher','goedkop','goedkoop','billig','value','odav','soodne','soodsa'],
+ 'PC building':['build','kasau','kasat','kasas','rakenta','zusammenbau','eigenbau','assembl','monter','bouwen','samenstel','bygga','bygge','datorbygge','kokkupan','ehita'],
+ 'Refurbished tech':['refurb','used$','second hand','secondhand','käytet','kunnoste','gebraucht','generalüberholt','recondition','occasion$','tweedehands','begagnad','rekondition','kasutatud','taastatud'],
+ 'PC performance':['benchmark','fps','performance','test','vertailu','vergleich','compar','jämför','prestanda','leistung','jõudlus','võrdlus'],
+ 'Gaming':['gaming','gamer','pelikone','pelitieto','pelaami','speldator','datorspel','game pc','pc spiel','mänguarvuti','arvutimäng',...Object.values(gameKeywords).flat()]};
+const sellerWords=['sell$','sells$','selling','seller','myynt','myyd','verkauf','verkaufen','vendre','verkop','sälja','upgrad','päivit','aufrüst','müük','müüa','uuenda'];
 const matchers=new Map();
 function matcher(word){if(!matchers.has(word)){const whole=word.endsWith('$'),stem=whole?word.slice(0,-1):word,esc=stem.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  matchers.set(word,new RegExp((whole||stem.length<7?'(?<![\\p{L}\\p{N}])':'')+esc+(whole?'(?![\\p{L}\\p{N}])':''),'u'))}return matchers.get(word)}
@@ -52,16 +56,17 @@ export function languageStatus(c,language){
  const videos=c.sourceType==='live'?(c.videos||[]).filter(v=>v.recentUpload&&(!v.broadcastStatus||v.broadcastStatus==='none')).sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt))).slice(0,5):(c.videos||[]);
  const hints=videos.flatMap(v=>[v.audioLanguage,v.metadataLanguage,...(!v.audioLanguage&&!v.metadataLanguage?[v.language]:[])]).filter(Boolean);
  if(c.language)hints.push(c.language);
- const codes=hints.map(languageCode),conflict=codes.some(code=>code!==language);
- const positive=videos.filter(v=>[v.audioLanguage,v.metadataLanguage,v.language].filter(Boolean).some(tag=>languageCode(tag)===language)).length;
+ const codes=videos.map(v=>v.audioLanguage||v.metadataLanguage||v.language).filter(Boolean).map(languageCode);
+ if(c.sourceType!=='live'&&c.language)codes.push(languageCode(c.language));
+ const conflict=codes.some(code=>code!==language);
+ const positive=videos.filter(v=>languageCode(v.audioLanguage||v.metadataLanguage||v.language)===language).length;
  const accepted=!conflict&&(c.sourceType==='live'?videos.length>=3&&positive>=2:positive>=1||languageCode(c.language)===language);
  return {accepted,conflict,positive,sampleSize:videos.length,hints:[...new Set(hints)],value:accepted?100:conflict?0:null};
 }
 const contentLabels={
- 'Counter-Strike / CS2':['counter-strike','counter strike','cs2$','csgo$'],Fortnite:['fortnite'],Minecraft:['minecraft'],Valorant:['valorant'],
- 'League of Legends':['league of legends','leagueoflegends'], 'PC hardware / GPUs':['gpu$','grafikk','näytönohj','rtx','radeon','geforce'],
- 'PC hardware / CPUs':['cpu$','ryzen','intel'], 'PC hardware / memory':['ram$','ddr4','ddr5'],
- 'PC gaming':['gaming pc','pc gaming','pelikone','pelitieto','speldator']
+ ...gameKeywords, 'PC hardware / GPUs':['gpu$','grafikk','näytönohj','rtx','radeon','geforce','videokaart'],
+ 'PC hardware / CPUs':['cpu$','ryzen','intel','protsessor'], 'PC hardware / memory':['ram$','ddr4','ddr5'],
+ 'PC gaming':['gaming pc','pc gaming','pelikone','pelitieto','speldator','mänguarvuti']
 };
 function topicVideos(c){
  const at=Date.parse(c.fetchedAt);return (c.videos||[]).filter(v=>c.sourceType!=='live'||v.recentUpload&&Number.isFinite(Date.parse(v.publishedAt))&&Date.parse(v.publishedAt)<=at&&Date.parse(v.publishedAt)>=at-90*86400000);

@@ -56,3 +56,14 @@ assert.deepEqual(filtered(capped).map(c=>c.id).sort(),['cap','edge']);
 const reach=stateFor({a:{...creator,id:'a',followers:2000},b:{...creator,id:'b',followers:800,recentViewStats:{...creator.recentViewStats,average:9000}}});
 assert.deepEqual(filtered(reach).map(c=>c.id),['b','a']);
 assert.match(researchHTML(reach),/How community engagement is calculated/);
+
+for(const [market,language,title] of [['FI','fi','Fortnite suomeksi'],['SE','sv','CS2 på svenska'],['EE','et','Minecraft eesti keeles']]){
+ const local={...creator,id:'local',country:market,market,language:'en',videos:videos.map(v=>({...v,title,audioLanguage:language,metadataLanguage:'en'}))};
+ assert.equal(filtered(stateFor({local},{market,language,niche:'Gaming'})).length,1,'Game names and local audio must qualify: '+market);
+ local.videos[0].audioLanguage='ja';
+ assert.equal(filtered(stateFor({local},{market,language,niche:'Gaming'})).length,0,'Contradictory audio still fails: '+market);
+}
+const fresh=stateFor({good:creator});delete fresh.research.mode;delete fresh.research.minAverageViews;
+const freshHTML=researchHTML(fresh);
+assert.equal(fresh.research.mode,'video');assert.equal(fresh.research.minAverageViews,0);
+assert.match(freshHTML,/200 unique channels/);assert.match(freshHTML,/Estonia/);

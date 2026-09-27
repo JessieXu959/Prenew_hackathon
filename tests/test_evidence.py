@@ -51,8 +51,9 @@ class EvidenceTests(unittest.TestCase):
             videos=[dict(video(i),audioLanguage='sv-SE') for i in range(5)]
             videos[0]['audioLanguage']=conflict
             self.assertFalse(assess_language('sv',videos,'sv')['accepted'])
-        self.assertFalse(assess_language('de',[video(i) for i in range(5)],'fi')['accepted'])
-        self.assertFalse(assess_language(None,[dict(video(i),metadataLanguage='de') for i in range(5)],'fi')['accepted'])
+        self.assertTrue(assess_language('en',[dict(video(i),metadataLanguage='en') for i in range(5)],'fi')['accepted'])
+        self.assertFalse(assess_language(None,[dict(video(i),audioLanguage=None,metadataLanguage='de') for i in range(5)],'fi')['accepted'])
+        self.assertTrue(assess_language(None,[dict(video(i),audioLanguage=None,metadataLanguage='fi') for i in range(5)],'fi')['accepted'])
 
     def test_search_hit_and_english_game_title_cannot_rescue_no_evidence(self):
         videos=[dict(video(i),title='Minecraft Fortnite RTX 5090',audioLanguage=None) for i in range(5)]
@@ -88,7 +89,8 @@ class EvidenceTests(unittest.TestCase):
         self.assertFalse(client.search('PC','en','all',market='FI')['cached'])
         self.assertFalse(client.search('PC','en','all',market='DE')['cached'])
         self.assertTrue(client.search('PC','en','all',market='FI')['cached'])
-        with self.assertRaises(APIError):client.search('PC','en','all',market='EE')
+        self.assertEqual(client.search('mänguarvuti','et','all',market='EE')['creators'],[])
+        with self.assertRaises(APIError):client.search('PC','en','all',market='ZZ')
 
     def test_csv_one_video_is_not_recent_average(self):
         c=import_csv('name,platform,source_url,provenance,video_url,video_title,views\nTest,TikTok,https://tiktok.com/@test,Fixture,https://tiktok.com/@test/video/1,Sample,5000','fixture.csv')['creators'][0]
@@ -110,5 +112,5 @@ class SubscriberGateTests(unittest.TestCase):
         client.get=get
         result=client.search('pc','fi','all',market='FI',max_subscribers=1000)
         self.assertEqual(result['funnel']['subscribers'],2)
-        self.assertEqual(calls[0][1]['order'],'viewCount')
+        self.assertEqual(calls[0][1]['order'],'relevance')
         with self.assertRaises(APIError):client.search('pc','fi','all',max_subscribers=799)

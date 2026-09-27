@@ -48,6 +48,9 @@ def safe_url(value, required=False):
     return value
 
 class YouTube:
+    CHANNEL_TARGET = 200
+    SEARCH_REQUEST_LIMIT = 12
+
     def __init__(self, key=None):
         self.key = os.environ.get('YOUTUBE_API_KEY', '') if key is None else key
         self.cache = {}
@@ -128,6 +131,64 @@ class YouTube:
             self.result_cache[identity] = (time.time(), result)
             return dict(result, cached=False)
 
+    def collect_candidates(self, query, language, market, mode, token=''):
+        # Rotate through native query alternatives before going deeper into any one.
+        queries = list(dict.fromkeys(term.strip().strip('"') for term in query.split('|') if term.strip()))
+        if not queries or len(queries) > 8:
+            raise APIError('Use between one and eight search terms separated by |.')
+        queue = [(term, token if i == 0 else '') for i, term in enumerate(queries)]
+        seen_pages, ids, matched, origins = set(), [], {}, {}
+        stats = {term: dict(query=term, pages=0, matches=0, newChannels=0) for term in queries}
+        warnings, requests, matches = [], 0, 0
+        reason = None
+        while queue and len(ids) < self.CHANNEL_TARGET and requests < self.SEARCH_REQUEST_LIMIT:
+            term, page_token = queue.pop(0)
+            if (term, page_token) in seen_pages:
+                continue
+            seen_pages.add((term, page_token))
+            params = dict(part='snippet', type=mode, q=term, relevanceLanguage=language,
+                          regionCode=market, maxResults=50, order='relevance')
+            if mode == 'video':
+                params['publishedAfter'] = (datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z')
+            if page_token:
+                params['pageToken'] = page_token
+            try:
+                page = self.get('search', **params)
+            except APIError as error:
+                if not ids:
+                    raise
+                warnings.append(str(error))
+                reason = 'upstream_limit'
+                break
+            requests += 1
+            items = page.get('items', [])
+            matches += len(items)
+            stats[term]['pages'] += 1
+            stats[term]['matches'] += len(items)
+            for item in items:
+                identifier, snippet = item.get('id', {}), item.get('snippet', {})
+                cid = identifier.get('channelId') or snippet.get('channelId')
+                if not cid:
+                    continue
+                if cid not in origins:
+                    if len(ids) >= self.CHANNEL_TARGET:
+                        continue
+                    ids.append(cid)
+                    origins[cid] = []
+                    stats[term]['newChannels'] += 1
+                if term not in origins[cid]:
+                    origins[cid].append(term)
+                vid = identifier.get('videoId')
+                if vid and vid not in matched.setdefault(cid, []) and len(matched[cid]) < 3:
+                    matched[cid].append(vid)
+            next_page = page.get('nextPageToken')
+            if next_page and (term, next_page) not in seen_pages:
+                queue.append((term, next_page))
+        reason = reason or ('target_reached' if len(ids) >= self.CHANNEL_TARGET else 'request_budget' if queue else 'results_exhausted')
+        discovery = dict(targetChannels=self.CHANNEL_TARGET, uniqueChannels=len(ids), searchRequests=requests,
+                         maxSearchRequests=self.SEARCH_REQUEST_LIMIT, stopReason=reason, queries=list(stats.values()))
+        return ids, matched, origins, matches, discovery, warnings
+
     def _search(self, query, language, size, token='', market=None, mode='video', min_subscribers=0, min_average_views=0, max_subscribers=0, sort='views'):
         if not query or len(query) > 220:
             raise APIError('Enter a search query between 1 and 220 characters.')
@@ -137,24 +198,13 @@ class YouTube:
             raise APIError('Choose a supported language.')
         if size not in ('all', 'nano', 'micro', 'mid', 'large') or len(token) > 500:
             raise APIError('Invalid size or pagination token.')
-        params = dict(part='snippet', type=mode, q=query,
-                      relevanceLanguage=language, regionCode=market, maxResults=25, order='viewCount' if sort == 'views' else 'relevance',
-                      publishedAfter=(datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z'))
-        if mode == 'channel':
-            params.pop('publishedAfter', None)
-        if token:
-            params['pageToken'] = token
-        page = self.get('search', **params)
-        ids = list(dict.fromkeys((x.get('id', {}).get('channelId') or x['snippet']['channelId']) for x in page.get('items', [])))
-        matched = {}
-        for item in page.get('items', []):
-            vid = item.get('id', {}).get('videoId')
-            if vid:
-                matched.setdefault(item['snippet']['channelId'], []).append(vid)
-        funnel = dict(matches=len(page.get('items', [])), channels=len(ids), subscribers=0, size=0, country=0, language=0, views=0)
+        ids, matched, origins, matches, discovery, warnings = self.collect_candidates(query, language, market, mode, token)
+        funnel = dict(matches=matches, channels=len(ids), subscribers=0, size=0, country=0, language=0, views=0)
         if not ids:
-            return {'creators': [], 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': [], 'funnel': funnel}
-        channels = self.get('channels', part='snippet,statistics,contentDetails', id=','.join(ids))['items']
+            return {'creators': [], 'nextPageToken': None, 'fetchedAt': now(), 'warnings': warnings, 'funnel': funnel, 'discovery': discovery}
+        channels = []
+        for start in range(0, len(ids), 50):
+            channels.extend(self.get('channels', part='snippet,statistics,contentDetails', id=','.join(ids[start:start+50])).get('items', []))
         def count(c):
             s = c.get('statistics', {})
             return None if s.get('hiddenSubscriberCount') else number(s.get('subscriberCount'))
@@ -166,7 +216,7 @@ class YouTube:
             lo, hi = ranges[size]
             channels = [c for c in channels if count(c) is not None and lo <= count(c) < hi]
         funnel['size'] = len(channels)
-        records, warnings = [], []
+        records = []
         excluded = {'countryMismatch': 0, 'countryUnknown': 0, 'languageMismatch': 0, 'languageInsufficient': 0}
         prepared = []
         for channel in channels:
@@ -227,10 +277,11 @@ class YouTube:
                 'engagement': sum(engagement)/len(engagement) if engagement else None, 'engagementSamples':len(engagement),
                 'fee': None, 'audienceCountry': None, 'videos': videos, 'fetchedAt': checked_at, 'market': market,
                 'searchLanguage': language, 'query': query, 'contentTitle': videos[0]['title'] if videos else '',
+                'discoveryQueries': origins[cid],
                 'contentUrl': videos[0]['url'] if videos else None, 'conflict': None})
-        return {'creators': records, 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': warnings,
+        return {'creators': records, 'nextPageToken': None, 'fetchedAt': now(), 'warnings': warnings, 'discovery': discovery,
                 'funnel': funnel, 'excluded': excluded, 'searchedChannels': len(ids), 'matchingChannels':len(records), 'searchesThisRun':self.searches,
-                'note':'Search matches are separate from the upload-based average. Up to 50 latest public uploads; 30-day publication window, 90-day fallback, minimum 3 measured videos. Strict country and recent-language metadata checks. Audience geography remains unverified.'}
+                'note':'Up to 200 unique channels before eligibility filters, using relevance-first query rotation and at most 12 search pages. Search matches are separate from the upload-based average. Up to 50 latest public uploads; 30/90-day view window, minimum 3 measured videos. Declared country and audio-first language evidence required. Audience geography remains unverified.'}
 
     def comments(self, video_id):
         if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):
