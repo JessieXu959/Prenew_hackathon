@@ -131,8 +131,13 @@ class YouTube:
             return dict(result, cached=False)
 
     def _search(self, query, language, size, token='', market=None, mode='video', min_subscribers=0, min_average_views=0, max_subscribers=0, sort='views', strict_country=True):
+<<<<<<< HEAD
+        if not query or len(query) > 220:
+            raise APIError('Enter a search query between 1 and 220 characters.')
+=======
         if not query or len(query) > 600:
             raise APIError('Enter a search query between 1 and 600 characters.')
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         if market not in MARKETS:
             raise APIError('Choose a supported country / market.')
         if language not in MARKETS.values():
@@ -140,11 +145,21 @@ class YouTube:
         if size not in ('all', 'nano', 'micro', 'mid', 'large') or len(token) > 6000:
             raise APIError('Invalid size or pagination token.')
         params = dict(part='snippet', type=mode, q=query,
+<<<<<<< HEAD
+                      relevanceLanguage=language, regionCode=market, maxResults=25, order='relevance',
+=======
                       relevanceLanguage=language, regionCode=market, maxResults=25, order='viewCount' if mode == 'video' and sort == 'views' else 'relevance',
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
                       publishedAfter=(datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z'))
         if mode == 'channel':
             params.pop('publishedAfter', None)
             params.pop('regionCode', None)
+<<<<<<< HEAD
+        if token:
+            params['pageToken'] = token
+        page = self.get('search', **params)
+        requests = [params]
+=======
         variants = list(dict.fromkeys(x.strip().strip('"') for x in query.split('|') if x.strip()))[:5]
         tokens = None
         if token and len(variants) > 1:
@@ -171,6 +186,7 @@ class YouTube:
         if any(next_tokens):
             next_page = next_tokens[0] if len(variants)==1 else base64.urlsafe_b64encode(json.dumps(next_tokens).encode()).decode()
         page = {'items': combined, 'nextPageToken': next_page}
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         ids = list(dict.fromkeys((x.get('id', {}).get('channelId') or x['snippet']['channelId']) for x in page.get('items', [])))
         matched = {}
         for item in page.get('items', []):

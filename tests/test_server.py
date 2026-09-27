@@ -10,6 +10,17 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from server import YouTube, APIError, import_csv
 
 class ServerTests(unittest.TestCase):
+<<<<<<< HEAD
+    def test_finnish_local_english_channel_reaches_matching_candidates(self):
+        client=YouTube('test')
+        def transport(endpoint,**args):
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'fi-channel'}}]}
+            if endpoint=='channels':return {'items':[{'id':'fi-channel','snippet':{'title':'Fixture','country':'FI','defaultLanguage':'en','description':'Finnish creator in Helsinki'},'statistics':{'subscriberCount':'12000'},'contentDetails':{'relatedPlaylists':{'uploads':'fi-uploads'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':f'fi-video-{i}'}} for i in range(3)]}
+            if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'RTX gaming PC build','description':'Parts https://jimms.fi/pc','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'en'},'statistics':{'viewCount':'12000'}} for vid in args['id'].split(',')]}
+        client.get=transport
+        result=client.search('pelikoneen kasaus','fi','all',market='FI',min_average_views=5000)
+=======
     def test_dutch_local_english_channel_reaches_matching_candidates(self):
         client=YouTube('test')
         def transport(endpoint,**args):
@@ -19,6 +30,7 @@ class ServerTests(unittest.TestCase):
             if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'RTX gaming PC build','description':'Parts https://megekko.nl/pc','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'en'},'statistics':{'viewCount':'12000'}} for vid in args['id'].split(',')]}
         client.get=transport
         result=client.search('game pc bouwen','nl','all',market='NL',min_average_views=5000)
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         self.assertEqual(len(result['creators']),1)
         candidate=result['creators'][0]
         self.assertEqual((candidate['eligibility'],candidate['market_match_tier']),('match',2))
@@ -49,11 +61,29 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(result['searchRequest'],calls[0])
         self.assertEqual(result['funnel']['matches'],0)
 
+<<<<<<< HEAD
+    def test_combined_query_uses_one_relevance_search_and_simple_pagination(self):
+=======
     def test_five_query_pagination(self):
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         client=YouTube('test');calls=[]
         def get(endpoint,**params):
             self.assertEqual(endpoint,'search')
             calls.append(params)
+<<<<<<< HEAD
+            return {'items':[],**({'nextPageToken':'next'} if 'pageToken' not in params else {})}
+        client.get=get
+        query='"one term" | "two term"'
+        result=client.search(query,'et','all',market='EE')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0]['q'],query)
+        self.assertEqual(calls[0]['type'],'video')
+        self.assertEqual(calls[0]['order'],'relevance')
+        self.assertEqual(result['searchRequests'],calls)
+        more=client.search(query,'et','all',token=result['nextPageToken'],market='EE')
+        self.assertEqual(len(calls),2)
+        self.assertEqual(calls[-1]['q'],query)
+=======
             return {'items':[],**({'nextPageToken':'next'} if params['q']=='one' and 'pageToken' not in params else {})}
         client.get=get
         query='one | two | three | four | five'
@@ -63,6 +93,7 @@ class ServerTests(unittest.TestCase):
         more=client.search(query,'et','all',token=result['nextPageToken'],market='EE',mode='channel')
         self.assertEqual(len(calls),6)
         self.assertEqual(calls[-1]['q'],'one')
+>>>>>>> 08cfb87f4daffe8b22cf63711f68285b80cb1d7d
         self.assertEqual(calls[-1]['pageToken'],'next')
         self.assertIsNone(more['nextPageToken'])
 
