@@ -1,105 +1,101 @@
-# Prenew Creator Collaboration Copilot — discovery version
+# Prenew Creator Collaboration Copilot
 
-The original dependency-free HTML/CSS/JavaScript app is preserved. A Python standard-library server now provides YouTube discovery and validated CSV import. No package installation or build step is required. Local browser storage retains the existing campaign, demo pipeline, creator snapshots, reviews, notes and drafts.
+Discover relevant creators from live YouTube evidence, review their fit, and export a shortlist. The existing dependency-free app, fictional demo library, local shortlist, comparison, CSV import and optional outreach drafts are preserved. No messages are sent by this prototype.
 
-## Exact local setup
+## Run locally
 
 ```sh
 git clone https://github.com/JessieXu959/Prenew_hackathon.git
 cd Prenew_hackathon
 cp -n .env.example .env
-```
-
-Open `.env` in an editor and set `YOUTUBE_API_KEY` to your own key. Enable **YouTube Data API v3** in its Google Cloud project and restrict the key to that API. This server makes server-side requests, so a browser-referrer-restricted key will not work. Never add the key to `dist/`, browser forms, commits or screenshots. `.env` is ignored, lives outside the served directory, and is not served by the server.
-
-Stop any old `python3 -m http.server 4173` process with Ctrl+C, then:
-
-```sh
+# Set YOUTUBE_API_KEY in .env, then:
 python3 server.py
 ```
 
-Open **http://127.0.0.1:4173/**. The same origin retains your previous browser data. Restart the server whenever `.env` changes. An environment variable, if set, takes precedence over `.env`. Optional `PORT` defaults to 4173. Without a key, CSV imports and all existing demo features still work, while YouTube shows an explicit setup error. No failed API request falls back to demo creators.
+Open http://127.0.0.1:4173/. Enable YouTube Data API v3 for your key. The key stays on the server; `.env` is ignored and is outside the public-file allowlist. Do not put a key in `dist/`, screenshots or commits. Restart after changing `.env`. Optional `PORT` defaults to 4173; environment variables take precedence over `.env`. There is no package installation or build step. Node is needed only for JavaScript tests.
 
-## What is real, imported, or fictional?
+## Discover and inspect
 
-- **YouTube API tab:** official YouTube Data API v3 requests only. Channel identity, public subscriber counts, the videos that matched the search (up to three per channel, labeled) plus up to five latest public uploads, dates, metadata language clues, views, likes and comment counts come from the API. Hidden/missing values remain null. Public question-like comments load only when requested. No credentials were configured during implementation, so actual live retrieval has NOT been verified.
-- **CSV imports tab:** Twitch, TikTok, Instagram and optional YouTube records supplied by the marketer. Every row requires a platform URL and provenance. These are uploader assertions, not API verification. No Twitch Helix integration is included because credentials were absent; CSV is the working second-source path.
-- **Demo library:** the original 20 fictional profiles, explicitly segregated from live and imported results. Existing campaign setup, comparison and outreach flow remain available.
-- **Outreach:** editable English templates. Approval changes a local status only. There is no email/message transport.
+1. Choose a **target country / market**, language, niche and optional size or metric limits. Finland, Germany, France, the Netherlands, Sweden and the UK are supported with localized queries. Changing market selects its default language; you can then change the language separately.
+2. Edit the query or use the localized suggestion, then **Search YouTube**. One click requests one page of up to 25 video matches. A region or language search hint does not establish creator or audience location.
+3. Inspect the creator's declared country and its source, content language evidence, subscribers, recent average views, niche/game/hardware labels, and any explicit public contact. Missing information is shown as **Unknown** or **No public contact found**.
+4. Open linked videos, save to the shortlist, record a review and notes, then export CSV. Scores are transparent triage heuristics, not trust judgments or performance promises.
 
-## Discovery and evidence
+New workspaces default both numeric limits to 0 (disabled), so small creators are discoverable. Existing saved filter settings are preserved. Positive limits retain the existing **greater than** behavior and exclude unknown metrics. Prenew's typical YouTube ranges of 50k–250k subscribers / 20k–100k views and TikTok 4k+ followers are reference examples, not eligibility thresholds.
 
-Choose market, language, niche, size and buyer/seller goal. Finland/Finnish and Germany/German have localized synonyms; France, Netherlands, Sweden and the UK are also supported. The query is visible and editable. For sellers, search terms emphasize resale/upgrades. Search uses region/language hints and videos from the last year, not audience location claims.
+## Conservative country and language checks
 
-Candidates with declared channel or video language metadata that does not match the selected search language are hidden from discovery, even when their other evidence scores are high. Missing language metadata remains unknown and is retained for manual review; it is not treated as a match or a mismatch. This language rule applies to both YouTube API results and imported creator records.
+Live results must have a channel-declared country equal to the selected market. Missing or mismatched country is excluded. Up to five latest public, non-ongoing uploads are examined: at least three must be available, at least two must have matching audio/metadata language, and no inspected video or channel language may contradict the selected language. Locale variants such as `de-DE` match `de`.
 
-Suggested queries quote each multi-word alternative (`"halpa pelikone" | "budjetti pelitietokone"`) because YouTube's `|` operator otherwise binds single words. Each click fetches one page of up to 25 matching videos, deduplicates channel IDs, keeps each channel's matched videos as evidence, gets channel metadata in one batch, filters by known channel size and enriches candidates through their uploads playlists and video statistics. Channels with known fewer than 100,000 followers are grouped first and then ranked by evidence fit. Nano is <10k, micro is 10k–100k, mid is 100k–500k. A size filter excludes unknown-size channels rather than assuming they are small. Search results are not an exhaustive census; use more localized queries and subsequent result pages if results are sparse.
+Audio language and title/description metadata language are retained separately. Titles and description excerpts are visible with source links for human review. An English game title, one old search hit, a channel tag alone, or a high score cannot override the gate. Text-only language inference and a “needs verification” candidate bucket are deliberately not implemented: this version retains a strict path and may miss valid multilingual or poorly annotated creators. It does not listen to videos or transcribe speech.
 
-Five adjustable factors: keyword relevance across matched and recent video titles/descriptions (keywords match at word starts, long stems also inside compounds, so `latest` no longer counts as `test`); declared language metadata; posting recency; views relative to subscriber count; and available public engagement. Unknown factors are excluded from the weighted mean and evidence coverage is displayed. All-zero weights yield no score. These are transparent triage heuristics, not trust scores, audience demographic estimates or campaign predictions. One supplied imported video is a narrow evidence sample. Shorts/streams/long videos are not normalized. Subscriber counts are as reported by YouTube and may be rounded.
+The browser also enforces country/language checks on saved live results. Changing market does not expose results from the previous market. Niche fit uses sampled uploads published within 90 days; old search-only matches cannot make unrelated current content pass. Imported records remain uploader claims and are separately labeled; known country/language contradictions are hidden.
 
-Trust review links to original content and asks a human to inspect benchmark methods, trade-offs, sponsorships and questions. The app has not watched the video. Comment sampling filters question marks and length in up to 20 top-level comments; that does not establish substance or representativeness. No honesty or audience claims are inferred from likes.
+**Target market, channel-declared country, content language, and verified audience country are separate.** Audience geography stays unknown. Imported audience claims and source URLs are exported separately and are never upgraded to independent verification.
 
-Audience geography stays unverified unless a CSV supplies both a country and an audience source URL. Even then it is labeled an uploader-supplied claim, not independent verification. Prices, fees, contact details, demographics, willingness and performance promises are never inferred.
+## Recent average views
 
-## Working CSV import
+The server retrieves up to **50 latest public uploads**, plus up to three search matches retained as discovery evidence. Video-detail requests are batched in groups of at most 50.
 
-Download `creator-template.csv` in the UI, fill with real records, and upload or paste it. UTF-8, quoted commas/newlines and BOM are supported. Maximum 500 rows / 1 MB. The whole import is rejected with row errors if any row is invalid; blank numeric values remain unknown. The template has headers only so it cannot be mistaken for real creator data.
+- Use actual public view counts for uploads published in the last **30 days**.
+- If fewer than **three measured uploads** are available, use a **90-day fallback**.
+- If that sample still has fewer than three videos, the average is **Unknown / insufficient sample**.
+- Search-only matches, future publications, ongoing/upcoming broadcasts, missing dates and missing view counts do not enter the average. Zero observed views remain zero.
+- Cards, details, comparison and CSV use the same measured result. They include publication window, sample size, timestamp and any sample cap / missing-count flags. Details and CSV identify the included videos and counts.
+- This is the mean **lifetime public view count of videos published in the window**, not the views gained by the channel during those days. Shorts, completed streams and long videos are mixed and are not normalized. If 50 uploads do not cover the window, the latest-50 sample is explicitly labeled; it is not advertised as a complete channel average.
 
-Required columns: `name,platform,source_url,provenance`.
+Older saved snapshots without this measurement show Unknown and require a new search. One imported example video is not a measured 30/90-day average. Set the view limit to 0 to review such imports.
 
-Optional: `country,market,language,topic,followers,video_url,video_title,video_description,published_at,views,likes,comments,audience_country,audience_source`.
+## Evidence, contact and ranking
 
-Use `FI`, `DE`, etc. for discovery market and `fi`, `de`, etc. for language. `country` describes supplied creator location, not audience geography. Dates are ISO 8601; numeric counts are nonnegative integers. `video_title` is required with `video_url`. URLs must be http(s); the creator URL must belong to the stated platform. Source URLs are not fetched during import. One row supplies one example video; repeated profile URLs within a file are deduplicated. Reimporting the same platform/profile path updates the record and preserves its saved notes/status. Different YouTube handle/channel aliases are not automatically resolved across imports and API data.
+Niche/game/hardware labels use recent video **titles**, with example-video links. Keyword matching is heuristic and can miss topics or be ambiguous. Topic scoring also uses descriptions. The existing adjustable topic, recency, views-relative-to-size and public-engagement weights are retained; language is an eligibility check with no ranking weight. Unknown score factors are excluded from the weighted mean, all-zero weights yield no score, and evidence coverage is displayed. Comparison likes/comments and engagement remain averages of supplied evidence videos, with their own sample counts.
 
-## Actionable shortlist
+A public contact is included only when a contact-labelled line of the public **channel description** explicitly contains an email or HTTP(S) contact link. The source is retained. Email addresses are never constructed; ownership, availability and willingness are not verified. A hidden About-page business email or an unlabelled website may remain undiscovered. No scraping, contact enrichment or sending was added.
 
-Save a candidate, set Reviewing / Accepted / Rejected, and add notes. Rejection invalidates outreach approval; reopen the review before approving outreach. Export all saved entries or an individual candidate to CSV with source URLs, provenance, timestamps, evidence titles/dates/URLs, market/language, score components, scoring configuration, review notes, unknowns, collaboration angle and outreach status. CSV cells are quoted and spreadsheet formula prefixes are neutralized. Rejected records remain in the export with their decision for auditability.
+Human review still covers methods, trade-offs, sponsorships, conflicts and audience questions. Comment retrieval remains on demand. The app has not watched the source videos. Fees, demographics, exclusivity and collaboration interest are unknown.
 
-One local campaign is supported. Changing the campaign brief clears previous outreach drafts/approvals and resets outreach status, as the UI explains. Discovery filter changes rerank the current evidence; they do not automatically launch another API search. Existing notes remain. API snapshots saved in browser storage may become stale: inspect the displayed collection date and rerun searches.
+## CSV import and export
 
-## Cache, quota and errors
+Imports support YouTube, TikTok, Twitch and Instagram with a required platform source URL and provenance. UTF-8, BOM and quoted fields are supported; maximum 500 rows / 1 MB. Validation is atomic. Same-profile duplicates update the stored record while preserving its local review. No TikTok API was added. Demo creators remain fictional and separate from both live results and imports.
 
-- Thirty-minute in-memory cache for each upstream request and complete search result; cached result timestamps are preserved. Restarting clears caches.
-- At most 40 uncached search requests and 1,000 total API calls per UTC day **per server run**. This is a conservative app guard, not an accounting of Google quota units; consult the Cloud console for actual project quotas. Restarts reset the guard.
-- Each candidate may require one playlist request and one video-statistics request, in addition to the search and batched channels lookup. No background searches, auto-pagination, automatic retries or eager comment fetching.
-- API-disabled/key-restriction/quota-denied, network, invalid query, empty-result and missing-key states are explicit. Secrets and upstream request URLs are not logged or returned.
-- Server binds to loopback, rejects foreign Host/Origin requests and serves only an allowlist of public files. This is a single-user prototype, not a production authenticated service.
+Download `creator-template.csv`. Required columns: `name,platform,source_url,provenance`. Optional columns: `country,market,language,topic,followers,video_url,video_title,video_description,published_at,views,likes,comments,audience_country,audience_source`. Use country codes such as `FI` / `DE` and language codes such as `fi` / `de`. Counts are nonnegative integers; blanks remain unknown. One row provides one example video, not a time-window average. Source URLs are not fetched during import.
 
-## 60-second demo
+Shortlist CSV now includes country/source; target market; content and search languages; language evidence/source links; subscribers; recent average views/window/sample/check date; included video URLs/counts; niche/game/hardware and evidence links; public contact/source; review notes; missing-data flags; scoring configuration; and existing outreach status. Audience claims are separate from verified audience country. Cells are quoted, UTF-8 BOM is retained, and spreadsheet formula prefixes are neutralized.
 
-With your key configured (results depend on current YouTube data):
+One local campaign is supported. Changing its brief resets existing outreach drafts/approvals as explained in the UI. Approving a draft changes local status only. Browser snapshots may become stale: inspect timestamps and rerun discovery.
 
-1. **0–15s:** select Finland, Finnish, Budget gaming, Nano or Micro. Show `halpa pelikone | budjetti pelitietokone`, then Search YouTube. Point out actual API provenance and unverified audience geography.
-2. **15–30s:** open a returned small creator. Show subscriber count, dated linked videos, matched keywords, language clues and unknown engagement fields. Inspect the source; do not declare trust from the score. If that page contains no small channel, widen to all sizes or load another page; do not claim a result that did not appear.
-3. **30–45s:** save, mark Reviewing and write one concrete verification question about testing, condition, warranty or value. Export the shortlist.
-4. **45–60s:** switch to Germany/German. Show `günstiger Gaming PC | Budget Gaming PC` and run the same search. Compare evidence and coverage rather than raw follower counts across markets.
+## Cache, quota and security
 
-Without credentials, steps 1 and 4 demonstrate localization and the explicit missing-key state, not a real search. Use your own sourced CSV to demonstrate a real small creator; or the separate Demo library to demonstrate fictional workflow only. No real small creator was verified during this run.
+- 30-minute in-memory API/search cache. Complete cached searches preserve snapshot timestamps; market is included in the cache identity.
+- At most 40 uncached searches and 1,000 total API calls per UTC day **per server run**. This is an app request guard, not Google quota-unit accounting. Restarting resets it.
+- No background search, automatic pagination/retries or eager comments. Enrichment adds one uploads request and up to two video-detail requests per country-matching channel.
+- Missing key, denied access, quota, network, empty-result and invalid-input states remain explicit. Failed requests never substitute fictional creators.
+- The server binds to loopback and checks Host/Origin. Only an allowlist of public files is served. Upstream URLs and credentials are not returned or logged. This is a local prototype, not an authenticated production service.
 
-## Verification
+## Verification and demo
 
 ```sh
 python3 -m unittest discover -s tests -v
 node tests/core.test.mjs
+node tests/discovery.test.mjs
+node --check dist/app.js
+node --check dist/discovery.js
+node --check dist/research-core.js
+node --check dist/examples.js
 ```
 
-Node is only needed for JavaScript tests, not to run the app. `node --check dist/app.js`, `dist/discovery.js`, `dist/research-core.js`, and `dist/examples.js` check syntax. See `VERIFICATION.md` for the actual checks and remaining limitations.
+See [VERIFICATION.md](VERIFICATION.md) for actual live checks, exact creator/video URLs and limitations, and [CHANGES.md](CHANGES.md) for the English change report and 60-second discovery/export demo.
 
 ## Repository layout
 
-- `server.py`: local API server, server-side YouTube integration, cache and CSV validation.
-- `dist/`: browser application, discovery UI, demo library and styles.
-- `tests/`: backend and browser-logic checks using synthetic fixtures only.
-- `.env.example`: credential and port template; the real `.env` remains ignored.
+- `server.py`: local API, YouTube retrieval/cache, CSV validation and public-file server.
+- `discovery_evidence.py`: strict recent-language assessment, publication-window averages and explicit public contact extraction.
+- `dist/`: existing browser app, discovery, comparison, styles and fictional demo.
+- `tests/`: synthetic regression fixtures; never injected into live results.
+- `.env.example`: setup template; real `.env` is ignored.
 - `creator-template.csv`: header-only import template.
-- `VERIFICATION.md`: checks completed and known limitations.
-- `Finnish_companies_5-10M.json`: pre-existing repository data, preserved unchanged.
+- `Finnish_companies_5-10M.json`: pre-existing repository data, unchanged.
 
-## Official references
+## Official API references
 
-- [YouTube search](https://developers.google.com/youtube/v3/docs/search/list)
-- [Channels](https://developers.google.com/youtube/v3/docs/channels/list)
-- [Uploads playlist items](https://developers.google.com/youtube/v3/docs/playlistItems/list)
-- [Videos and statistics](https://developers.google.com/youtube/v3/docs/videos/list)
-- [Comment threads](https://developers.google.com/youtube/v3/docs/commentThreads/list)
-- [Twitch Helix](https://dev.twitch.tv/docs/api/reference) — not integrated in this version
+[Video fields and statistics](https://developers.google.com/youtube/v3/docs/videos), [channel metadata](https://developers.google.com/youtube/v3/docs/channels), [uploads pagination](https://developers.google.com/youtube/v3/docs/playlistItems/list), [search hints](https://developers.google.com/youtube/v3/docs/search/list), and [comments](https://developers.google.com/youtube/v3/docs/commentThreads/list).

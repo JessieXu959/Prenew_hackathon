@@ -27,29 +27,68 @@ function matcher(word){if(!matchers.has(word)){const whole=word.endsWith('$'),st
 export function matchesKeywords(text,words){const t=String(text||'').toLowerCase();return words.some(w=>matcher(w).test(t))}
 export const factorLabels={topic:'Recent topic relevance',language:'Language clues',recency:'Posting recency',views:'Views relative to size',engagement:'Public engagement'};
 export const defaultWeights={topic:40,language:0,recency:15,views:15,engagement:10};
+export function viewSummary(c){
+ if(c.sourceType==='live'&&c.recentViewStats)return c.recentViewStats;
+ return {average:null,windowDays:null,sampleSize:0,checkedAt:null,videoIds:[],status:'insufficient',sampleLimited:false,
+  method:c.sourceType==='imported'?'A single imported example is not a measured 30/90-day average.':c.sourceType==='live'?'Refresh this older API snapshot to measure recent uploads.':'Fictional demo metrics are not measured averages.'};
+}
+const languageCode=value=>{const text=String(value||'').toLowerCase();return Object.entries(languages).find(([,name])=>name.toLowerCase()===text)?.[0]||text.split('-')[0]};
+export function languageStatus(c,language){
+ const videos=c.sourceType==='live'?(c.videos||[]).filter(v=>v.recentUpload&&(!v.broadcastStatus||v.broadcastStatus==='none')).sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt))).slice(0,5):(c.videos||[]);
+ const hints=videos.flatMap(v=>[v.audioLanguage,v.metadataLanguage,...(!v.audioLanguage&&!v.metadataLanguage?[v.language]:[])]).filter(Boolean);
+ if(c.language)hints.push(c.language);
+ const codes=hints.map(languageCode),conflict=codes.some(code=>code!==language);
+ const positive=videos.filter(v=>[v.audioLanguage,v.metadataLanguage,v.language].filter(Boolean).some(tag=>languageCode(tag)===language)).length;
+ const accepted=!conflict&&(c.sourceType==='live'?videos.length>=3&&positive>=2:positive>=1||languageCode(c.language)===language);
+ return {accepted,conflict,positive,sampleSize:videos.length,hints:[...new Set(hints)],value:accepted?100:conflict?0:null};
+}
+const contentLabels={
+ 'Counter-Strike / CS2':['counter-strike','counter strike','cs2$','csgo$'],Fortnite:['fortnite'],Minecraft:['minecraft'],Valorant:['valorant'],
+ 'League of Legends':['league of legends','leagueoflegends'], 'PC hardware / GPUs':['gpu$','grafikk','näytönohj','rtx','radeon','geforce'],
+ 'PC hardware / CPUs':['cpu$','ryzen','intel'], 'PC hardware / memory':['ram$','ddr4','ddr5'],
+ 'PC gaming':['gaming pc','pc gaming','pelikone','pelitieto','speldator']
+};
+function topicVideos(c){
+ const at=Date.parse(c.fetchedAt);return (c.videos||[]).filter(v=>c.sourceType!=='live'||v.recentUpload&&Number.isFinite(Date.parse(v.publishedAt))&&Date.parse(v.publishedAt)<=at&&Date.parse(v.publishedAt)>=at-90*86400000);
+ }
+export function nicheEvidence(c){
+ const videos=topicVideos(c);
+ return Object.entries({...keywordGroups,...contentLabels}).map(([label,words])=>({label,videos:videos.filter(v=>matchesKeywords(v.title,words))})).filter(x=>x.videos.length);
+}
+export function nicheLabel(c){return nicheEvidence(c).map(x=>x.label).join(', ')||c.topic||'Unknown'}
+export function countryName(c){return markets[c.country]||c.country||'Unknown'}
+export function countrySource(c){return c.countrySource||(c.sourceType==='imported'&&c.country?'CSV uploader claim':'Unknown')}
+export function contentLanguage(c){return languages[c.contentLanguage]||c.contentLanguage||languages[languageCode(c.language)]||c.language||'Unknown'}
+export function viewWindowLabel(c){const v=viewSummary(c);return v.windowDays?`${v.windowDays}-day publication window${v.windowDays===90?' (fallback)':''} · ${v.sampleSize} videos${v.status==='insufficient'?' · Insufficient sample (minimum 3)':''}${v.sampleLimited?' · Latest 50 uploads only':''}${v.missingViewCount?' · '+v.missingViewCount+' missing view counts':''}`:v.method}
 export function evidence(c,config,weights=defaultWeights,at=Date.now()){
- const videos=c.videos||[], words=[...keywordGroups[config.niche]||keywordGroups.Gaming,...(config.goal==='sellers'?sellerWords:[])];
+ const videos=topicVideos(c), words=[...keywordGroups[config.niche]||keywordGroups.Gaming,...(config.goal==='sellers'?sellerWords:[])];
  const relevant=videos.filter(v=>matchesKeywords(v.title+' '+(v.description||''),words));
- const hints=videos.map(v=>v.language).filter(Boolean);if(c.language)hints.push(c.language);
- const languageMatch=hints.some(x=>x.toLowerCase().split('-')[0]===config.language||x.toLowerCase()===languages[config.language]?.toLowerCase());
+ const language=languageStatus(c,config.language),hints=language.hints;
  const dates=videos.map(v=>Date.parse(v.publishedAt)).filter(Number.isFinite), newest=dates.length?Math.max(...dates):null;
  const age=newest===null?null:Math.max(0,Math.floor((at-newest)/86400000));
- const views=videos.map(v=>v.views).filter(v=>v!==null&&v!==undefined),avg=views.length?views.reduce((a,b)=>a+b,0)/views.length:null;
+ const avg=viewSummary(c).average;
  const ratios=videos.filter(v=>v.views>0&&v.likes!=null&&v.comments!=null).map(v=>(v.likes+v.comments)/v.views*100);
  const rate=ratios.length?ratios.reduce((a,b)=>a+b,0)/ratios.length:null;
- const factors={topic:videos.length?Math.round(relevant.length/videos.length*100):null,language:hints.length?(languageMatch?100:0):null,
+ const factors={topic:videos.length?Math.round(relevant.length/videos.length*100):null,language:language.value,
  recency:age===null?null:age<=30?100:age<=90?70:age<=180?40:10,
  views:avg!==null&&c.followers>0?Math.min(100,Math.round(avg/c.followers*100)):null,
  engagement:rate===null?null:Math.min(100,Math.round(rate*20))};
  let total=0,denominator=0;for(const k in factors){if(k!=='language'&&factors[k]!==null){total+=factors[k]*weights[k];denominator+=weights[k]}}
- return {factors,score:denominator?Math.round(total/denominator):null,known:Object.values(factors).filter(v=>v!==null).length,relevant,age,avg,rate,engagementSamples:ratios.length,languageHints:[...new Set(hints)]};
+ return {total:videos.length,factors,score:denominator?Math.round(total/denominator):null,known:Object.values(factors).filter(v=>v!==null).length,relevant,age,avg,rate,engagementSamples:ratios.length,languageHints:[...new Set(hints)]};
 }
-export function unknowns(c){return [c.audienceCountry&&c.audienceSource?'Audience geography: uploader evidence supplied; not independently verified':'Audience geography unverified','Audience age and demographics unknown','Fee, availability and collaboration interest unknown','Content honesty and sponsorship conflicts require manual review',...(c.followers==null?['Channel size unknown']:[]),...(!(c.videos||[]).length?['Recent video evidence missing']:[])];}
-export function fitReason(c,config,e){return `${e.relevant.length}/${(c.videos||[]).length} supplied recent videos contain ${config.goal==='sellers'?'niche or upgrade/resale':'niche'} keywords. ${e.languageHints.length?'Language metadata: '+e.languageHints.join(', ')+'.':'Language unverified; search language is only a hint.'} ${e.age===null?'Posting recency unknown.':'Latest supplied upload: '+e.age+' days ago.'}`}
+export function unknowns(c){return [...(contentLanguage(c)==='Unknown'?['Content language unknown']:[]),...(nicheLabel(c)==='Unknown'?['Niche / game evidence missing']:[]),...(!c.country?['Channel / creator country unknown']:[]),...(!c.contact?['No public contact found']:[]),...(viewSummary(c).average===null?['Recent average views unknown / insufficient sample']:[]),...(viewSummary(c).sampleLimited?['View sample capped at latest 50 uploads']:[]),c.audienceCountry&&c.audienceSource?'Audience geography: uploader evidence supplied; not independently verified':'Audience geography unverified','Audience age and demographics unknown','Fee, availability and collaboration interest unknown','Content honesty and sponsorship conflicts require manual review',...(c.followers==null?['Channel size unknown']:[]),...(!(c.videos||[]).length?['Recent video evidence missing']:[])];}
+export function fitReason(c,config,e){return `${e.relevant.length}/${e.total} recent evidence videos contain ${config.goal==='sellers'?'niche or upgrade/resale':'niche'} keywords. ${e.languageHints.length?'Language metadata: '+e.languageHints.join(', ')+'.':'Language unverified; search language is only a hint.'} ${e.age===null?'Posting recency unknown.':'Latest supplied upload: '+e.age+' days ago.'}`}
 export function angle(c,config){return config.goal==='sellers'?'An old-rig audit: inspect condition and components, document testing, then compare keeping, upgrading and selling. Confirm Prenew’s actual acceptance criteria and selling process; do not promise a payout.':'An honest refurbished-PC test: inspect condition, explain testing and measured game performance, compare total value, and ask what the warranty actually covers. Confirm exact specifications, prices and warranty terms with Prenew before recording.';}
 export function csvCell(value){let s=String(value??'');if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
-export function shortlistCSV(entries,config,weights){const headers=['name','platform','source_type','source_url','provenance','fetched_or_imported_at','discovery_market','search_language','query','review','notes','scoring_niche','scoring_goal','scoring_language','scoring_weights','score','topic_score','language_score','recency_score','views_score','engagement_score','known_factors','evidence_urls','evidence_titles','evidence_dates','unknowns','collaboration_angle','outreach_status'];
-const lines=entries.map(({creator:c,pipeline:p})=>{const e=evidence(c,config,weights);return [c.name,c.platform,c.sourceType||'demo',c.sourceUrl||'',c.source,c.fetchedAt,markets[c.market]||c.market||'',c.searchLanguage||c.language||'',c.query||'',p.review||'Unreviewed',p.notes||'',config.niche,config.goal,config.language,JSON.stringify(weights),e.score,...Object.values(e.factors),e.known,(c.videos||[]).map(v=>v.url).join(' | '),(c.videos||[]).map(v=>v.title).join(' | '),(c.videos||[]).map(v=>v.publishedAt||'Unknown').join(' | '),unknowns(c).join('; '),angle(c,config),p.status].map(csvCell).join(',')});return '\ufeff'+[headers.map(csvCell).join(','),...lines].join('\r\n');}
+export function shortlistCSV(entries,config,weights){
+ const headers=['name','platform','source_type','source_url','provenance','fetched_or_imported_at','discovery_market','search_language','query','country','country_source','content_language','language_evidence','language_evidence_urls','verified_audience_country','audience_claim','audience_claim_source','subscribers_followers','recent_average_views','views_window_days','views_sample_size','views_window_start','views_window_end','views_last_checked','views_status','views_sample_limited','views_missing_counts','views_method','views_video_urls','views_video_counts','niche_game_hardware','niche_evidence_urls','public_contact','contact_type','contact_source','review','notes','scoring_niche','scoring_goal','scoring_language','scoring_weights','score','topic_score','language_score','recency_score','views_score','engagement_score','known_factors','evidence_urls','evidence_titles','evidence_dates','missing_data_flags','collaboration_angle','outreach_status'];
+ const lines=entries.map(({creator:c,pipeline:p})=>{
+  const e=evidence(c,config,weights),v=viewSummary(c),sample=(c.videos||[]).filter(video=>v.videoIds.includes(video.id)),niches=nicheEvidence(c);
+  const languageEvidence=c.languageEvidence?`${c.languageEvidence.positiveVideos}/${c.languageEvidence.sampleSize} recent videos match; ${c.languageEvidence.method} ${(c.languageEvidence.videos||[]).map(video=>`${video.videoId}: audio=${video.audioLanguage||'Unknown'}, metadata=${video.metadataLanguage||'Unknown'}`).join(' | ')}`:c.sourceType==='imported'?'Uploader-supplied language; unverified':'Unknown';
+  return [c.name,c.platform,c.sourceType||'demo',c.sourceUrl||'Unknown',c.source,c.fetchedAt||'Unknown',markets[c.market]||c.market||'Unknown',c.searchLanguage||'Unknown',c.query||'',countryName(c),countrySource(c),contentLanguage(c),languageEvidence,(c.languageEvidence?.videos||[]).map(x=>x.url).join(' | ')||'Unknown','Unknown',c.audienceCountry||'Unknown',c.audienceSource||'Unknown',c.followers??'Unknown',v.average??'Unknown',v.windowDays??'Unknown',v.sampleSize,v.windowStart||'Unknown',v.windowEnd||'Unknown',v.checkedAt||'Unknown',v.status,v.sampleLimited,v.missingViewCount??'Unknown',v.method,sample.map(x=>x.url).join(' | '),sample.map(x=>x.views).join(' | '),nicheLabel(c),[...new Set(niches.flatMap(x=>x.videos.map(video=>video.url)))].join(' | '),c.contact?.value||'No public contact found',c.contact?.kind||'Unknown',c.contact?.sourceUrl||'Unknown',p.review||'Unreviewed',p.notes||'',config.niche,config.goal,config.language,JSON.stringify(weights),e.score,...Object.values(e.factors),e.known,(c.videos||[]).map(x=>x.url).join(' | '),(c.videos||[]).map(x=>x.title).join(' | '),(c.videos||[]).map(x=>x.publishedAt||'Unknown').join(' | '),unknowns(c).join('; '),angle(c,config),p.status].map(csvCell).join(',');
+ });
+ return '\ufeff'+[headers.map(csvCell).join(','),...lines].join('\r\n');
+}
 
 // Comparison uses observed metrics only; missing values never become zero.
 export function comparisonMetrics(c){
@@ -74,5 +113,6 @@ export function comparisonMetrics(c){
   }
   if(count)themes.push(`${theme} (${count}/${videos.length} videos)`);
  }
- return {views:average('views'),likes:average('likes'),comments:average('comments'),engagement,engagementSamples:samples.length,keywords:[...keywords].sort(),themes,total:videos.length};
+ const views=viewSummary(c);
+ return {views:{value:views.average,count:views.sampleSize},likes:average('likes'),comments:average('comments'),engagement,engagementSamples:samples.length,keywords:[...keywords].sort(),themes,total:videos.length};
 }

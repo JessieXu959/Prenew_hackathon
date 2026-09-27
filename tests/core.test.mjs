@@ -17,7 +17,7 @@ assert.equal(topic('Uusi budjettipelikone','Gaming'),100);
 assert.ok(matchesKeywords('Günstiger Gaming-PC',['günstig']));
 const c={name:'=SYNTHETIC TEST',sourceType:'imported',platform:'Twitch',followers:1000,videos:[{title:'halpa pelikone testi',description:'budget test',views:500,likes:null,comments:4,publishedAt:'2026-09-01T00:00:00Z',language:null,url:'https://twitch.tv/synthetic_test_only'}]};
 const e=evidence(c,fi,defaultWeights,Date.parse('2026-09-26'));
-assert.equal(e.factors.topic,100);assert.equal(e.factors.language,null);assert.equal(e.factors.engagement,null);assert.equal(e.factors.views,50);assert.equal(e.known,3);
+assert.equal(e.factors.topic,100);assert.equal(e.factors.language,null);assert.equal(e.factors.engagement,null);assert.equal(e.factors.views,null);assert.equal(e.known,2);
 assert.equal(evidence(c,fi,Object.fromEntries(Object.keys(defaultWeights).map(k=>[k,0]))).score,null);
 assert.equal(evidence({...c,followers:null},fi).factors.views,null);
 const csv=shortlistCSV([{creator:c,pipeline:{status:'Shortlisted',notes:'first line\nsecond, line',review:'Reviewing'}}],fi,defaultWeights);
@@ -26,7 +26,7 @@ console.log('Core checks passed: localized queries, missing evidence, scoring, z
 
 const {comparisonMetrics}=await import('../dist/research-core.js');
 const comparison=comparisonMetrics({videos:[{title:'Refurbished budget gaming PC',views:1000,likes:50,comments:10},{title:'Pasta recipe',views:3000,likes:null,comments:0},{title:'GPU upgrade',views:null,likes:10,comments:null}]});
-assert.deepEqual(comparison.views,{value:2000,count:2});
+assert.deepEqual(comparison.views,{value:null,count:0});
 assert.deepEqual(comparison.comments,{value:5,count:2});
 assert.deepEqual(comparison.likes,{value:30,count:2});
 assert.equal(comparison.engagement,6);
@@ -37,3 +37,18 @@ assert.ok(!comparison.keywords.includes('pasta'));
 assert.equal(comparisonMetrics({}).views.value,null);
 assert.equal(comparisonMetrics({}).engagement,null);
 console.log('Comparison metrics checks passed.');
+
+const {viewSummary,nicheEvidence,languageStatus}=await import('../dist/research-core.js');
+const live={...c,sourceType:'live',country:'FI',countrySource:'YouTube channel-declared country',market:'FI',contentLanguage:'fi',fetchedAt:'2026-09-27T12:00:00Z',videos:Array.from({length:3},(_,i)=>({id:String(i),title:'Fortnite RTX 5090 budget gaming PC',publishedAt:'2026-09-25T12:00:00Z',views:(i+1)*100,url:'https://youtube.com/watch?v='+i,recentUpload:true,audioLanguage:'fi',metadataLanguage:'fi'})),recentViewStats:{average:200,windowDays:30,sampleSize:3,videoIds:['0','1','2'],checkedAt:'2026-09-27T12:00:00Z',status:'sufficient',method:'Mean lifetime public views of sampled uploads'}};
+assert.equal(viewSummary(live).average,200);
+assert.equal(evidence(live,fi).avg,200);
+assert.equal(comparisonMetrics(live).views.value,200);
+assert.equal(viewSummary({...live,recentViewStats:undefined}).average,null,'Old snapshots require refresh');
+assert.equal(viewSummary({...live,sourceType:'imported'}).average,null,'Imported claims never become measured averages');
+assert.ok(nicheEvidence(live).some(x=>x.label==='Fortnite'&&x.videos.length===3));
+assert.equal(languageStatus({...live,videos:live.videos.map(v=>({...v,metadataLanguage:'pt-BR'}))},'fi').accepted,false);
+const fullCSV=shortlistCSV([{creator:live,pipeline:{notes:'Review linked videos',status:'Shortlisted'}}],fi,defaultWeights);
+for(const column of ['country','country_source','content_language','language_evidence','verified_audience_country','subscribers_followers','recent_average_views','views_window_days','views_sample_size','views_last_checked','niche_game_hardware','public_contact','views_video_urls','missing_data_flags'])assert.ok(fullCSV.split('\r\n')[0].includes('"'+column+'"'),column);
+assert.match(fullCSV,/"200","30","3"/);assert.match(fullCSV,/"100 \| 200 \| 300"/);
+assert.match(fullCSV,/No public contact found/);assert.match(fullCSV,/YouTube channel-declared country/);
+console.log('Sponsor export checks passed: measured-view consistency, source separation, language conflicts, niche/video provenance, and complete CSV fields.');

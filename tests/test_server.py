@@ -3,6 +3,7 @@ import io
 import json
 import unittest
 from unittest.mock import patch
+from datetime import datetime, timezone, timedelta
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -51,9 +52,9 @@ class ServerTests(unittest.TestCase):
         def transport(endpoint,**args):
             calls.append((endpoint,args))
             if endpoint=='search':return {'items':[{'snippet':{'channelId':'synthetic-channel'}}]*2,'nextPageToken':'next-fixture'}
-            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
-            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'synthetic01'}}]}
-            if endpoint=='videos':return {'items':[{'id':'synthetic01','snippet':{'title':'pelikone budjetti testi','publishedAt':'2026-09-01T00:00:00Z','defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY','country':'FI'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':vid}} for vid in ['synthetic01','synthetic02','synthetic03']]}
+            if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'pelikone budjetti testi','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'fi'},'statistics':{'viewCount':'600','commentCount':'4'},'contentDetails':{}} for vid in args['id'].split(',')]}
         client.get=transport
         response=client.search('halpa pelikone','fi','nano')
         self.assertEqual(len(response['creators']),1)
@@ -61,7 +62,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c['followers'],1200);self.assertEqual(c['recentViews'],600)
         self.assertIsNone(c['audienceCountry']);self.assertIsNone(c['engagement']);self.assertIsNone(c['videos'][0]['likes'])
         self.assertEqual(response['nextPageToken'],'next-fixture')
-        self.assertNotIn('regionCode',calls[0][1]);self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
+        self.assertEqual(calls[0][1]['regionCode'],'FI');self.assertEqual(calls[0][1]['relevanceLanguage'],'fi')
         self.assertTrue(client.search('halpa pelikone','fi','nano')['cached'])
         self.assertEqual(len(calls),4)
         self.assertEqual(client.search('pc','sv','all')['creators'],[])
@@ -74,15 +75,15 @@ class ServerTests(unittest.TestCase):
         client=YouTube('test');video_ids=[]
         def transport(endpoint,**args):
             if endpoint=='search':return {'items':[{'id':{'videoId':'matched0001'},'snippet':{'channelId':'synthetic-channel'}}]}
-            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
-            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':'latest00001'}}]}
+            if endpoint=='channels':return {'items':[{'id':'synthetic-channel','snippet':{'title':'SYNTHETIC TEST ONLY','country':'FI'},'statistics':{'subscriberCount':'1200'},'contentDetails':{'relatedPlaylists':{'uploads':'synthetic-playlist'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':vid}} for vid in ['latest00001','latest00002','latest00003']]}
             if endpoint=='videos':
                 video_ids.append(args['id'])
                 return {'items':[{'id':x,'snippet':{'title':x,'defaultAudioLanguage':'fi','publishedAt':'2026-09-01T00:00:00Z'},'statistics':{}} for x in reversed(args['id'].split(','))]}
         client.get=transport
         videos=client.search('halpa pelikone','fi','all')['creators'][0]['videos']
-        self.assertEqual(video_ids,['matched0001,latest00001'])
-        self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False)])
+        self.assertEqual(video_ids,['matched0001,latest00001,latest00002,latest00003'])
+        self.assertEqual([(v['id'],v['matchedSearch']) for v in videos],[('matched0001',True),('latest00001',False),('latest00002',False),('latest00003',False)])
 
     def test_csv_unknowns_and_quoted_fields(self):
         value='name,platform,source_url,provenance,followers,audience_country\n"SYNTHETIC, TEST",Twitch,https://www.twitch.tv/synthetic_test_only,TEST FIXTURE ONLY,,FI\n'
