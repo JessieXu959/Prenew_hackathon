@@ -2,7 +2,7 @@
 from datetime import datetime, timezone, timedelta
 import re
 
-MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'NL': 'nl', 'SE': 'sv', 'GB': 'en', 'EE': 'et', 'HU': 'hu'}
+MARKETS = {'FI': 'fi', 'DE': 'de', 'FR': 'fr', 'SE': 'sv', 'GB': 'en', 'EE': 'et', 'HU': 'hu'}
 MIN_VIEW_SAMPLE = 3
 
 

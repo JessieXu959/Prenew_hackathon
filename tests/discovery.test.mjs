@@ -19,8 +19,12 @@ const records={
  viewBoundary:{...creator,id:'viewBoundary',recentViewStats:{...creator.recentViewStats,average:5000}},
 };
 const state=stateFor(records);
+const cards=researchHTML(state);
+assert.match(cards,/Latest upload: /);
+assert.doesNotMatch(cards,/recent evidence videos contain/);
+assert.doesNotMatch(cards,/Language metadata:/);
 assert.deepEqual(filtered(state).map(c=>c.id),['good']);
-for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et'],['NL','nl']]){
+for(const [market,language] of [['FI','fi'],['SE','sv'],['EE','et']]){
  const local={...creator,id:'local',market,country:market,contentLanguage:'en',eligibility:'match',market_match_tier:2,language_detected:'en',language_confidence:.65,local_market_evidence:['channel country: '+market,'local link: https://example.'+market.toLowerCase()],videos:videos.map(v=>({...v,audioLanguage:'en',metadataLanguage:'en',language:'en'}))};
  assert.deepEqual(filtered(stateFor({local},{market,language})).map(c=>c.id),['local'],`${market} local English creator must reach matching candidates`);
  const foreign={...local,country:'US'};

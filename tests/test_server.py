@@ -10,15 +10,15 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from server import YouTube, APIError, import_csv
 
 class ServerTests(unittest.TestCase):
-    def test_dutch_local_english_channel_reaches_matching_candidates(self):
+    def test_finnish_local_english_channel_reaches_matching_candidates(self):
         client=YouTube('test')
         def transport(endpoint,**args):
-            if endpoint=='search':return {'items':[{'snippet':{'channelId':'nl-channel'}}]}
-            if endpoint=='channels':return {'items':[{'id':'nl-channel','snippet':{'title':'Fixture','country':'NL','defaultLanguage':'en','description':'Dutch creator in Amsterdam'},'statistics':{'subscriberCount':'12000'},'contentDetails':{'relatedPlaylists':{'uploads':'nl-uploads'}}}]}
-            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':f'nl-video-{i}'}} for i in range(3)]}
-            if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'RTX gaming PC build','description':'Parts https://megekko.nl/pc','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'en'},'statistics':{'viewCount':'12000'}} for vid in args['id'].split(',')]}
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'fi-channel'}}]}
+            if endpoint=='channels':return {'items':[{'id':'fi-channel','snippet':{'title':'Fixture','country':'FI','defaultLanguage':'en','description':'Finnish creator in Helsinki'},'statistics':{'subscriberCount':'12000'},'contentDetails':{'relatedPlaylists':{'uploads':'fi-uploads'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':f'fi-video-{i}'}} for i in range(3)]}
+            if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'RTX gaming PC build','description':'Parts https://jimms.fi/pc','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'en'},'statistics':{'viewCount':'12000'}} for vid in args['id'].split(',')]}
         client.get=transport
-        result=client.search('game pc bouwen','nl','all',market='NL',min_average_views=5000)
+        result=client.search('pelikoneen kasaus','fi','all',market='FI',min_average_views=5000)
         self.assertEqual(len(result['creators']),1)
         candidate=result['creators'][0]
         self.assertEqual((candidate['eligibility'],candidate['market_match_tier']),('match',2))

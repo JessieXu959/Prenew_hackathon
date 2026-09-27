@@ -1,12 +1,11 @@
-export const markets={FI:'Finland',DE:'Germany',FR:'France',NL:'Netherlands',SE:'Sweden',GB:'United Kingdom',EE:'Estonia',HU:'Hungary'};
-export const languages={fi:'Finnish',de:'German',fr:'French',nl:'Dutch',sv:'Swedish',en:'English',et:'Estonian',hu:'Hungarian'};
-export const defaults={FI:'fi',DE:'de',FR:'fr',NL:'nl',SE:'sv',GB:'en',EE:'et',HU:'hu'};
+export const markets={FI:'Finland',DE:'Germany',FR:'France',SE:'Sweden',GB:'United Kingdom',EE:'Estonia',HU:'Hungary'};
+export const languages={fi:'Finnish',de:'German',fr:'French',sv:'Swedish',en:'English',et:'Estonian',hu:'Hungarian'};
+export const defaults={FI:'fi',DE:'de',FR:'fr',SE:'sv',GB:'en',EE:'et',HU:'hu'};
 export const niches=['Budget gaming','PC building','Refurbished tech','PC performance','Gaming'];
 const terms={
  fi:['halpa pelikone | budjetti pelitietokone','pelikoneen kasaus | tietokoneen rakentaminen','käytetty pelikone | kunnostettu tietokone','pelikone testi | näytönohjain vertailu','pelikone | PC pelaaminen','vanhan tietokoneen myynti | pelikone päivitys'],
  de:['günstiger Gaming PC | Budget Gaming PC','Gaming PC zusammenbauen | PC Eigenbau','gebrauchter Gaming PC | generalüberholter PC','Gaming PC Test | Grafikkarten Vergleich','Gaming PC | PC Spiele','alten PC verkaufen | Gaming PC aufrüsten'],
  fr:['PC gamer pas cher | PC gaming petit budget','monter un PC gamer | assemblage PC','PC gamer reconditionné | PC occasion','test PC gamer | comparatif carte graphique','PC gamer | jeux PC','vendre son PC | améliorer PC'],
- nl:['goedkope game pc | budget gaming pc','game pc bouwen | computer samenstellen','refurbished gaming pc | tweedehands computer','gaming pc test | videokaart vergelijking','game pc | pc gaming','oude pc verkopen | pc upgraden'],
  sv:['billig speldator | budget gaming dator','bygga speldator | datorbygge','begagnad speldator | rekonditionerad dator','speldator test | grafikkort jämförelse','speldator | PC spel','sälja gammal dator | uppgradera dator'],
  en:['budget gaming PC | cheap gaming computer','PC building | gaming PC build','refurbished gaming PC | used gaming computer','gaming PC benchmark | GPU comparison','gaming PC | PC gaming','sell old PC | gaming PC upgrade'],
  et:['odav mänguriarvuti | soodne mänguarvuti','arvuti kokkupanek | mänguriarvuti ehitamine','kasutatud mänguriarvuti | taastatud arvuti','mänguriarvuti test | videokaardi võrdlus','mänguriarvuti | arvutimängud','arvuti müük | arvuti uuendamine'],

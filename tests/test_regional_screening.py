@@ -1,4 +1,4 @@
-"""Dutch-market screening regressions using synthetic public metadata."""
+"""Regional screening regressions using synthetic public metadata."""
 import unittest
 
 from regional_screening import clean_hardware_text, detect_creator_market, screen_candidate
@@ -10,27 +10,27 @@ def uploads(language, description=''):
                  audioLanguage=language, metadataLanguage=language) for i in range(3)]
 
 
-class DutchScreeningTests(unittest.TestCase):
+class RegionalScreeningTests(unittest.TestCase):
     def test_jargon_is_not_english_evidence(self):
-        self.assertEqual(clean_hardware_text('RTX GPU gaming PC build: de beste voor jou'), ': de beste voor jou')
-        result = screen_candidate('NL', 'NL', None, '', uploads(None), 'nl')
+        self.assertEqual(clean_hardware_text('RTX GPU gaming PC build: tämä on uusi'), ': tämä on uusi')
+        result = screen_candidate('FI', 'FI', None, '', uploads(None), 'fi')
         self.assertEqual((result['eligibility'], result['market_match_tier']), ('review', 3))
 
-    def test_direct_dutch_match(self):
-        result = screen_candidate('NL', 'NL', 'nl', '', uploads('nl'), 'nl')
+    def test_direct_native_match(self):
+        result = screen_candidate('FI', 'FI', 'fi', '', uploads('fi'), 'fi')
         self.assertEqual((result['eligibility'], result['market_match_tier']), ('match', 1))
 
-    def test_english_dutch_local_requires_secondary_evidence(self):
-        videos = uploads('en', 'Parts: https://www.megekko.nl/product/1')
-        result = screen_candidate('NL', 'NL', 'en', '', videos, 'nl')
+    def test_english_local_requires_secondary_evidence(self):
+        videos = uploads('en', 'Parts: https://www.jimms.fi/product/1')
+        result = screen_candidate('FI', 'FI', 'en', '', videos, 'fi')
         self.assertEqual((result['eligibility'], result['market_match_tier']), ('match', 2))
-        self.assertTrue(any('megekko.nl' in x for x in result['local_market_evidence']))
-        self.assertEqual(screen_candidate('NL', 'NL', 'en', '', uploads('en'), 'nl')['eligibility'], 'review')
-        self.assertTrue(detect_creator_market('NL', 'NL', 'Dutch creator in Amsterdam', []))
+        self.assertTrue(any('jimms.fi' in x for x in result['local_market_evidence']))
+        self.assertEqual(screen_candidate('FI', 'FI', 'en', '', uploads('en'), 'fi')['eligibility'], 'review')
+        self.assertTrue(detect_creator_market('FI', 'FI', 'Finnish creator in Helsinki', []))
 
-    def test_foreign_country_never_passes_via_dutch_links(self):
+    def test_foreign_country_never_passes_via_local_links(self):
         for country in ('US', 'GB'):
-            result = screen_candidate('NL', country, 'en', 'Dutch', uploads('en', 'https://megekko.nl'), 'nl')
+            result = screen_candidate('FI', country, 'en', 'Finnish', uploads('en', 'https://jimms.fi'), 'fi')
             self.assertEqual(result['eligibility'], 'excluded')
             self.assertIn(country, result['failure_reasons'][0])
 
