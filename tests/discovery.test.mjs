@@ -61,7 +61,7 @@ const capped=stateFor({low:{...creator,id:'low',followers:799},edge:{...creator,
 assert.deepEqual(filtered(capped).map(c=>c.id).sort(),['cap','edge']);
 const reach=stateFor({a:{...creator,id:'a',followers:2000},b:{...creator,id:'b',followers:800,recentViewStats:{...creator.recentViewStats,average:9000}}});
 assert.deepEqual(filtered(reach).map(c=>c.id),['b','a']);
-assert.match(researchHTML(reach),/How community engagement is calculated/);
+assert.match(researchHTML(reach),/How Community Engagement is Calculated/);
 
 const reviewState=stateFor({unknownCountry:records.unknownCountry,unknownLanguage:records.unknownLanguage,mixed:records.mixed},{bucket:'review'});
 assert.deepEqual(filtered(reviewState).map(c=>c.id).sort(),['unknownCountry','unknownLanguage']);

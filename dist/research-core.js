@@ -12,8 +12,7 @@ const terms={
  et:['odav mänguriarvuti | soodne mänguarvuti','arvuti kokkupanek | mänguriarvuti ehitamine','kasutatud mänguriarvuti | taastatud arvuti','mänguriarvuti test | videokaardi võrdlus','mänguriarvuti | arvutimängud','arvuti müük | arvuti uuendamine'],
  hu:['olcsó gamer PC | olcsó játékos számítógép','PC építés | számítógép összeszerelés','használt gamer PC | felújított számítógép','gamer PC teszt | videokártya összehasonlítás','gamer PC | számítógépes játék','számítógép eladás | PC fejlesztés']
 };
-const quote=t=>t.split('|').map(x=>x.trim()).map(x=>x.includes(' ')?'"'+x+'"':x).join(' | ');
-export function localizedQuery(config){return quote(terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0])}
+export function localizedQuery(config){return terms[config.language]?.[config.goal==='sellers'?5:Math.max(0,niches.indexOf(config.niche))]||terms.en[0]}
 // Stems match at the start of a word; stems of 7+ letters also match inside compounds (budjettipelikone);
 // a trailing $ requires the whole word.
 const keywordGroups={

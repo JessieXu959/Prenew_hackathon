@@ -4,7 +4,7 @@ const fi={country:'FI',language:'fi',niche:'Budget gaming',goal:'buyers'};
 assert.match(localizedQuery(fi),/halpa pelikone/);
 assert.match(localizedQuery({...fi,language:'de'}),/günstiger/);
 assert.match(localizedQuery({...fi,goal:'sellers'}),/myynti/);
-assert.equal(localizedQuery(fi),'"halpa pelikone" | "budjetti pelitietokone"');
+assert.equal(localizedQuery(fi),'halpa pelikone | budjetti pelitietokone');
 const topic=(title,niche,goal='buyers')=>evidence({followers:1,videos:[{title,description:''}]},{...fi,niche,goal}).factors.topic;
 assert.equal(topic('My latest contest, the fastest speedrun','PC performance'),0);
 assert.equal(topic('I focused on what caused the bug','Refurbished tech'),0);

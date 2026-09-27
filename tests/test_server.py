@@ -49,20 +49,23 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(result['searchRequest'],calls[0])
         self.assertEqual(result['funnel']['matches'],0)
 
-    def test_five_query_pagination(self):
+    def test_combined_query_uses_one_relevance_search_and_simple_pagination(self):
         client=YouTube('test');calls=[]
         def get(endpoint,**params):
             self.assertEqual(endpoint,'search')
             calls.append(params)
-            return {'items':[],**({'nextPageToken':'next'} if params['q']=='one' and 'pageToken' not in params else {})}
+            return {'items':[],**({'nextPageToken':'next'} if 'pageToken' not in params else {})}
         client.get=get
-        query='one | two | three | four | five'
-        result=client.search(query,'et','all',market='EE',mode='channel')
-        self.assertEqual(len(calls),5)
-        self.assertEqual([x['q'] for x in result['searchRequests']],query.split(' | '))
-        more=client.search(query,'et','all',token=result['nextPageToken'],market='EE',mode='channel')
-        self.assertEqual(len(calls),6)
-        self.assertEqual(calls[-1]['q'],'one')
+        query='"one term" | "two term"'
+        result=client.search(query,'et','all',market='EE')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0]['q'],query)
+        self.assertEqual(calls[0]['type'],'video')
+        self.assertEqual(calls[0]['order'],'relevance')
+        self.assertEqual(result['searchRequests'],calls)
+        more=client.search(query,'et','all',token=result['nextPageToken'],market='EE')
+        self.assertEqual(len(calls),2)
+        self.assertEqual(calls[-1]['q'],query)
         self.assertEqual(calls[-1]['pageToken'],'next')
         self.assertIsNone(more['nextPageToken'])
 

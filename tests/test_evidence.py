@@ -110,5 +110,5 @@ class SubscriberGateTests(unittest.TestCase):
         client.get=get
         result=client.search('pc','fi','all',market='FI',max_subscribers=1000)
         self.assertEqual(result['funnel']['subscribers'],2)
-        self.assertEqual(calls[0][1]['order'],'viewCount')
+        self.assertEqual(calls[0][1]['order'],'relevance')
         with self.assertRaises(APIError):client.search('pc','fi','all',max_subscribers=799)
