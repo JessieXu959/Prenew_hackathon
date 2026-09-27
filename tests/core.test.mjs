@@ -62,3 +62,32 @@ for(const column of ['country','country_source','content_language','language_evi
 assert.match(fullCSV,/"200","200","20","30","3"/);assert.match(fullCSV,/"100 \| 200 \| 300"/);
 assert.match(fullCSV,/No public contact found/);assert.match(fullCSV,/YouTube channel-declared country/);
 console.log('Sponsor export checks passed: measured-view consistency, source separation, language conflicts, niche/video provenance, and complete CSV fields.');
+
+const overviewHeader=['Creator key','Market','Country','Creator / channel','Agency','Year-week','Platform','Niche / content','YT subscribers','YT views / video','TikTok followers','TikTok views / video'];
+assert.ok(fullCSV.startsWith('\ufeff'+overviewHeader.map(x=>'"'+x+'"').join(',')+','));
+const imported={name:'Estonian gamer',platform:'YouTube + TikTok',sourceType:'imported',source:'PRENEW spreadsheet',contentLanguage:'et',followers:12000,videos:[],prenewImport:{'YT subscribers':'12,000','YT views / video':'10K-50K','TikTok followers':'30,000','TikTok views / video':'<10K','Niche / content':'Gaming'},prenewHistory:[{'YT subscribers':'12,000','YT views / video':'10K-50K','TikTok followers':'30,000','TikTok views / video':'<10K','Niche / content':'Gaming'}]};
+const importedCSV=shortlistCSV([{creator:imported,pipeline:{notes:'Agency: North Star\nCheck audience',status:'Shortlisted'}}],fi,defaultWeights);
+assert.match(importedCSV,/"Estonian gamer","EE","Estonia","Estonian gamer","North Star","\d{4}-\d{2}","YouTube \+ TikTok","Gaming","12,000","10K-50K","30,000","<10K"/);
+assert.match(importedCSV,/"prenew_original_record"/);
+assert.match(importedCSV,/Agency: North Star\nCheck audience/);
+const unknownCSV=shortlistCSV([{creator:{name:'Unknown origin',platform:'TikTok',sourceType:'imported',videos:[]},pipeline:{}}],fi,defaultWeights);
+assert.match(unknownCSV,/"Unknown origin","Unknown","Unknown","Unknown origin","","\d{4}-\d{2}","TikTok","Unknown","","","Unknown","Unknown"/);
+console.log('PRENEW two-zone export checks passed.');
+
+const {languages,markets,dimensions}=await import('../dist/research-core.js');
+assert.equal(languages.et,'Estonian');assert.equal(languages.hu,'Hungarian');
+assert.equal(markets.EE,'Estonia');assert.equal(markets.HU,'Hungary');
+for(const language of ['et','hu']){const query=localizedQuery({...fi,language});assert.ok(query.length>5);assert.ok(!query.includes('?'));}
+assert.equal(dimensions(c,fi).community,null);
+assert.equal(dimensions({...c,community:{discussionShare:75,sampleSize:24,videoCount:2}},fi).community,75);
+console.log('New-language queries and assessment dimensions passed.');
+
+assert.equal(localizedQuery({language:'et',niche:'Gaming',mode:'channel'}),localizedQuery({language:'et',niche:'Gaming',mode:'video'}));
+
+const {niches}=await import('../dist/research-core.js');
+for(const language of Object.keys(languages))for(const niche of niches)for(const mode of ['channel','video']){
+ const query=localizedQuery({language,niche,mode,goal:'buyers'});
+ assert.equal(query.split('|').length,2,language+' '+niche+' '+mode);
+ assert.ok(query.length<=600);
+}
+console.log('Two localized alternatives verified for every language, niche and mode.');

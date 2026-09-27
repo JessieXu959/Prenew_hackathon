@@ -10,6 +10,21 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from server import YouTube, APIError, import_csv
 
 class ServerTests(unittest.TestCase):
+    def test_dutch_local_english_channel_reaches_matching_candidates(self):
+        client=YouTube('test')
+        def transport(endpoint,**args):
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':'nl-channel'}}]}
+            if endpoint=='channels':return {'items':[{'id':'nl-channel','snippet':{'title':'Fixture','country':'NL','defaultLanguage':'en','description':'Dutch creator in Amsterdam'},'statistics':{'subscriberCount':'12000'},'contentDetails':{'relatedPlaylists':{'uploads':'nl-uploads'}}}]}
+            if endpoint=='playlistItems':return {'items':[{'contentDetails':{'videoId':f'nl-video-{i}'}} for i in range(3)]}
+            if endpoint=='videos':return {'items':[{'id':vid,'snippet':{'title':'RTX gaming PC build','description':'Parts https://megekko.nl/pc','publishedAt':datetime.now(timezone.utc).isoformat(),'defaultAudioLanguage':'en'},'statistics':{'viewCount':'12000'}} for vid in args['id'].split(',')]}
+        client.get=transport
+        result=client.search('game pc bouwen','nl','all',market='NL',min_average_views=5000)
+        self.assertEqual(len(result['creators']),1)
+        candidate=result['creators'][0]
+        self.assertEqual((candidate['eligibility'],candidate['market_match_tier']),('match',2))
+        self.assertEqual(candidate['language_detected'],'en')
+        self.assertEqual(result['funnel']['views'],1)
+
     def test_rate_limit_cooldown_and_recovery(self):
         from urllib.error import HTTPError
         client=YouTube('SECRET')
@@ -21,6 +36,35 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(transport.call_count,1)
         with patch('server.time.time',return_value=1121), patch('server.urlopen',return_value=io.BytesIO(b'{"items":[]}')):
             self.assertEqual(client.get('search',q='pc'),{'items':[]})
+
+    def test_channel_retrieval_uses_relevance_and_no_video_filters(self):
+        client=YouTube('test');calls=[]
+        client.get=lambda endpoint,**args:(calls.append(args) or {'items':[]})
+        result=client.search('arvuti','et','all',market='EE',mode='channel',min_subscribers=12000,max_subscribers=500000)
+        self.assertEqual(calls[0]['type'],'channel')
+        self.assertEqual(calls[0]['order'],'relevance')
+        self.assertEqual(calls[0]['relevanceLanguage'],'et')
+        self.assertNotIn('regionCode',calls[0])
+        self.assertNotIn('publishedAfter',calls[0])
+        self.assertEqual(result['searchRequest'],calls[0])
+        self.assertEqual(result['funnel']['matches'],0)
+
+    def test_five_query_pagination(self):
+        client=YouTube('test');calls=[]
+        def get(endpoint,**params):
+            self.assertEqual(endpoint,'search')
+            calls.append(params)
+            return {'items':[],**({'nextPageToken':'next'} if params['q']=='one' and 'pageToken' not in params else {})}
+        client.get=get
+        query='one | two | three | four | five'
+        result=client.search(query,'et','all',market='EE',mode='channel')
+        self.assertEqual(len(calls),5)
+        self.assertEqual([x['q'] for x in result['searchRequests']],query.split(' | '))
+        more=client.search(query,'et','all',token=result['nextPageToken'],market='EE',mode='channel')
+        self.assertEqual(len(calls),6)
+        self.assertEqual(calls[-1]['q'],'one')
+        self.assertEqual(calls[-1]['pageToken'],'next')
+        self.assertIsNone(more['nextPageToken'])
 
     def test_missing_key(self):
         with self.assertRaisesRegex(APIError,'not configured'):
