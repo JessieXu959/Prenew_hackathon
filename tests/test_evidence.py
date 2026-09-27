@@ -76,7 +76,7 @@ class EvidenceTests(unittest.TestCase):
         def get(endpoint,**kwargs):
             calls.append(endpoint)
             if endpoint=='search':return {'items':[{'snippet':{'channelId':str(i)}} for i in range(4)]}
-            if endpoint=='channels':return {'items':[{'id':str(i),'snippet':{'title':'Fixture','country':country}} for i,country in enumerate(['BR','CN','JP',None])]}
+            if endpoint=='channels':return {'items':[{'id':str(i),'statistics':{'subscriberCount':'1000'},'snippet':{'title':'Fixture','country':country}} for i,country in enumerate(['BR','CN','JP',None])]}
             self.fail('Must not enrich mismatched countries')
         client.get=get
         result=client.search('speldator','sv','all',market='SE')
@@ -96,3 +96,19 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(c['videos'][0]['views'],5000)
 
 if __name__=='__main__':unittest.main()
+
+from server import APIError
+
+class SubscriberGateTests(unittest.TestCase):
+    def test_floor_cap_and_search_order(self):
+        client=YouTube('test'); calls=[]
+        def get(endpoint,**kwargs):
+            calls.append((endpoint,kwargs))
+            if endpoint=='search':return {'items':[{'snippet':{'channelId':str(n)}} for n in [799,800,1000,1001]]}
+            if endpoint=='channels':return {'items':[{'id':str(n),'statistics':{'subscriberCount':str(n)},'snippet':{'title':'Fixture','country':'JP'}} for n in [799,800,1000,1001]]}
+            self.fail('Wrong country must be rejected before upload retrieval')
+        client.get=get
+        result=client.search('pc','fi','all',market='FI',max_subscribers=1000)
+        self.assertEqual(result['funnel']['subscribers'],2)
+        self.assertEqual(calls[0][1]['order'],'viewCount')
+        with self.assertRaises(APIError):client.search('pc','fi','all',max_subscribers=799)

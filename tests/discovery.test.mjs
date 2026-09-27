@@ -26,7 +26,7 @@ state.research.market='DE';assert.deepEqual(filtered(state),[],'Previous-market 
 state.research.market='FI';state.research.language='de';assert.deepEqual(filtered(state),[]);
 state.research.language='fi';state.research.size='mid';assert.deepEqual(filtered(state),[]);
 state.research.size='all';state.research.minSubscribers=0;state.research.minAverageViews=0;
-assert.deepEqual(filtered(state).map(c=>c.id).sort(),['good','insufficientViews','subBoundary','viewBoundary']);
+assert.deepEqual(filtered(state).map(c=>c.id).sort(),['good','insufficientViews','viewBoundary']);
 
 for(const country of ['BR','CN','JP']){
  const bad={...creator,id:country,market:'SE',country,videos:videos.map(v=>({...v,language:'sv',audioLanguage:'sv',metadataLanguage:'sv'}))};
@@ -50,3 +50,9 @@ console.log('Discovery checks passed: strict country/recent-language gates, Swed
 const staleTopic={...creator,id:'stale',videos:[...videos.map(v=>({...v,title:'Cooking pasta'})),{...videos[0],id:'old-hit',title:'budget gaming PC',publishedAt:'2000-01-01',recentUpload:false,matchedSearch:true}]};
 assert.equal(filtered(stateFor({stale:staleTopic})).length,0,'An old search hit cannot establish current niche relevance');
 console.log('Current niche regression passed: historical search hits cannot rescue unrelated recent uploads.');
+
+const capped=stateFor({low:{...creator,id:'low',followers:799},edge:{...creator,id:'edge',followers:800},cap:{...creator,id:'cap',followers:1000},over:{...creator,id:'over',followers:1001}},{maxSubscribers:1000});
+assert.deepEqual(filtered(capped).map(c=>c.id).sort(),['cap','edge']);
+const reach=stateFor({a:{...creator,id:'a',followers:2000},b:{...creator,id:'b',followers:800,recentViewStats:{...creator.recentViewStats,average:9000}}});
+assert.deepEqual(filtered(reach).map(c=>c.id),['b','a']);
+assert.match(researchHTML(reach),/How community engagement is calculated/);

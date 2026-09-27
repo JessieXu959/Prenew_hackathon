@@ -101,20 +101,34 @@ class YouTube:
             self.cache[cache_key] = (time.time(), data)
             return data
 
-    def search(self, query, language, size, token='', market=None):
+    def search(self, query, language, size, token='', market=None, mode='video', min_subscribers=0, min_average_views=0, max_subscribers=0, sort='views'):
         market = market or next((m for m, lang in MARKETS.items() if lang == language), None)
-        identity = (query, language, size, token, market)
+        if mode not in ('video', 'channel'):
+            raise APIError('Choose channel or video search.')
+        try:
+            min_subscribers, min_average_views = int(min_subscribers), int(min_average_views)
+            if min_subscribers < 0 or min_average_views < 0: raise ValueError
+        except (ValueError, TypeError):
+            raise APIError('Minimum metrics must be nonnegative integers.') from None
+        try:
+            max_subscribers = int(max_subscribers)
+            if max_subscribers != 0 and max_subscribers < max(800, min_subscribers): raise ValueError
+        except (TypeError, ValueError):
+            raise APIError('Subscriber cap must be 0 (no cap), or at least the minimum and 800.') from None
+        if sort not in ('views', 'subscribers', 'fit'):
+            raise APIError('Invalid sort order.')
+        identity = (query, language, size, token, market, mode, min_subscribers, min_average_views, max_subscribers, sort)
         with self.lock:
             cached = self.result_cache.get(identity)
             if cached and time.time() - cached[0] < self.ttl:
                 return dict(cached[1], cached=True)
-            result = self._search(query, language, size, token, market)
+            result = self._search(query, language, size, token, market, mode, min_subscribers, min_average_views, max_subscribers, sort)
             if len(self.result_cache) >= 100:
                 self.result_cache.pop(next(iter(self.result_cache)))
             self.result_cache[identity] = (time.time(), result)
             return dict(result, cached=False)
 
-    def _search(self, query, language, size, token='', market=None):
+    def _search(self, query, language, size, token='', market=None, mode='video', min_subscribers=0, min_average_views=0, max_subscribers=0, sort='views'):
         if not query or len(query) > 220:
             raise APIError('Enter a search query between 1 and 220 characters.')
         if market not in MARKETS:
@@ -123,31 +137,38 @@ class YouTube:
             raise APIError('Choose a supported language.')
         if size not in ('all', 'nano', 'micro', 'mid', 'large') or len(token) > 500:
             raise APIError('Invalid size or pagination token.')
-        params = dict(part='snippet', type='video', q=query,
-                      relevanceLanguage=language, regionCode=market, maxResults=25, order='relevance',
+        params = dict(part='snippet', type=mode, q=query,
+                      relevanceLanguage=language, regionCode=market, maxResults=25, order='viewCount' if sort == 'views' else 'relevance',
                       publishedAfter=(datetime.now(timezone.utc)-timedelta(days=365)).strftime('%Y-%m-%dT00:00:00Z'))
+        if mode == 'channel':
+            params.pop('publishedAfter', None)
         if token:
             params['pageToken'] = token
         page = self.get('search', **params)
-        ids = list(dict.fromkeys(x['snippet']['channelId'] for x in page.get('items', [])))
+        ids = list(dict.fromkeys((x.get('id', {}).get('channelId') or x['snippet']['channelId']) for x in page.get('items', [])))
         matched = {}
         for item in page.get('items', []):
             vid = item.get('id', {}).get('videoId')
             if vid:
                 matched.setdefault(item['snippet']['channelId'], []).append(vid)
+        funnel = dict(matches=len(page.get('items', [])), channels=len(ids), subscribers=0, size=0, country=0, language=0, views=0)
         if not ids:
-            return {'creators': [], 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': []}
+            return {'creators': [], 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': [], 'funnel': funnel}
         channels = self.get('channels', part='snippet,statistics,contentDetails', id=','.join(ids))['items']
         def count(c):
             s = c.get('statistics', {})
             return None if s.get('hiddenSubscriberCount') else number(s.get('subscriberCount'))
+        channels = [c for c in channels if count(c) is not None and count(c) >= max(800, min_subscribers)
+                    and (max_subscribers == 0 or count(c) <= max_subscribers)]
+        funnel['subscribers'] = len(channels)
         ranges = {'nano': (0,10000), 'micro': (10000,100000), 'mid': (100000,500000), 'large': (500000,float('inf'))}
         if size != 'all':
             lo, hi = ranges[size]
             channels = [c for c in channels if count(c) is not None and lo <= count(c) < hi]
-        channels.sort(key=lambda c: count(c) if count(c) is not None else float('inf'))
+        funnel['size'] = len(channels)
         records, warnings = [], []
         excluded = {'countryMismatch': 0, 'countryUnknown': 0, 'languageMismatch': 0, 'languageInsufficient': 0}
+        prepared = []
         for channel in channels:
             cid, snippet = channel['id'], channel['snippet']
             country = snippet.get('country')
@@ -164,24 +185,37 @@ class YouTube:
                 uploads_capped = bool(uploads.get('nextPageToken'))
                 vids += upload_ids
             vids = list(dict.fromkeys(vids))
-            if vids:
-                items = []
-                for start in range(0, len(vids), 50):
-                    items += self.get('videos', part='snippet,statistics,contentDetails', id=','.join(vids[start:start+50])).get('items', [])
-                for video in sorted(items, key=lambda v: vids.index(v['id']) if v['id'] in vids else len(vids)):
-                    sn, st = video['snippet'], video.get('statistics', {})
-                    videos.append({'id': video['id'], 'matchedSearch': video['id'] in hits, 'recentUpload': video['id'] in upload_ids, 'title': sn['title'], 'description': sn.get('description', '')[:2000],
-                        'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
-                        'audioLanguage': sn.get('defaultAudioLanguage'), 'metadataLanguage': sn.get('defaultLanguage'),
-                        'broadcastStatus': sn.get('liveBroadcastContent', 'none'),
-                        'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
-                        'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
+            prepared.append((channel, vids, hits, upload_ids, uploads_capped))
+        funnel['country'] = len(prepared)
+        all_ids = list(dict.fromkeys(vid for _, vids, _, _, _ in prepared for vid in vids))
+        lookup = {}
+        for start in range(0, len(all_ids), 50):
+            items = self.get('videos', part='snippet,statistics,contentDetails', id=','.join(all_ids[start:start+50])).get('items', [])
+            lookup.update((item['id'], item) for item in items)
+        for channel, vids, hits, upload_ids, uploads_capped in prepared:
+            cid, snippet = channel['id'], channel['snippet']
+            country, videos = snippet.get('country'), []
+            for vid in vids:
+                video = lookup.get(vid)
+                if video is None:
+                    continue
+                sn, st = video['snippet'], video.get('statistics', {})
+                videos.append({'id': video['id'], 'matchedSearch': video['id'] in hits, 'recentUpload': video['id'] in upload_ids, 'title': sn['title'], 'description': sn.get('description', '')[:2000],
+                    'url': 'https://www.youtube.com/watch?v=' + video['id'], 'publishedAt': sn['publishedAt'],
+                    'audioLanguage': sn.get('defaultAudioLanguage'), 'metadataLanguage': sn.get('defaultLanguage'),
+                    'broadcastStatus': sn.get('liveBroadcastContent', 'none'),
+                    'language': sn.get('defaultAudioLanguage') or sn.get('defaultLanguage'),
+                    'views': number(st.get('viewCount')), 'likes': number(st.get('likeCount')), 'comments': number(st.get('commentCount'))})
             language_evidence = assess_language(snippet.get('defaultLanguage'), videos, language)
             if not language_evidence['accepted']:
                 excluded['languageMismatch' if language_evidence['status'] == 'mismatch' else 'languageInsufficient'] += 1
                 continue
+            funnel['language'] += 1
             checked_at = now()
             view_stats = recent_view_summary(videos, checked_at, uploads_capped)
+            if min_average_views > 0 and (view_stats['average'] is None or view_stats['average'] <= min_average_views):
+                continue
+            funnel['views'] += 1
             engagement = [100*(v['likes']+v['comments'])/v['views'] for v in videos if v['views'] and v['likes'] is not None and v['comments'] is not None]
             records.append({'id': 'yt-'+cid, 'channelId': cid, 'name': snippet['title'], 'platform': 'YouTube',
                 'sourceType': 'live', 'source': 'YouTube Data API v3', 'sourceUrl': 'https://www.youtube.com/channel/'+cid,
@@ -195,7 +229,7 @@ class YouTube:
                 'searchLanguage': language, 'query': query, 'contentTitle': videos[0]['title'] if videos else '',
                 'contentUrl': videos[0]['url'] if videos else None, 'conflict': None})
         return {'creators': records, 'nextPageToken': page.get('nextPageToken'), 'fetchedAt': now(), 'warnings': warnings,
-                'excluded': excluded, 'searchedChannels': len(ids), 'matchingChannels':len(records), 'searchesThisRun':self.searches,
+                'funnel': funnel, 'excluded': excluded, 'searchedChannels': len(ids), 'matchingChannels':len(records), 'searchesThisRun':self.searches,
                 'note':'Search matches are separate from the upload-based average. Up to 50 latest public uploads; 30-day publication window, 90-day fallback, minimum 3 measured videos. Strict country and recent-language metadata checks. Audience geography remains unverified.'}
 
     def comments(self, video_id):
@@ -297,7 +331,7 @@ class Handler(SimpleHTTPRequestHandler):
         params={k:v[0] for k,v in parse_qs(route.query).items()}
         try:
             if route.path == '/api/status': return self.respond({'youtubeConfigured':bool(YOUTUBE.key),'cacheMinutes':30,'searchLimit':40,'searchesThisRun':YOUTUBE.searches})
-            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('language','fi'),params.get('size','all'),params.get('pageToken',''),params.get('market')))
+            if route.path == '/api/youtube/search': return self.respond(YOUTUBE.search(params.get('q',''),params.get('language','fi'),params.get('size','all'),params.get('pageToken',''),params.get('market'),params.get('mode','video'),params.get('minSubscribers','0'),params.get('minAverageViews','0'),params.get('maxSubscribers','0'),params.get('sort','views')))
             if route.path == '/api/youtube/comments': return self.respond(YOUTUBE.comments(params.get('videoId','')))
             if route.path.startswith('/api/'): raise APIError('Unknown API endpoint.',404)
             if route.path == '/creator-template.csv':
