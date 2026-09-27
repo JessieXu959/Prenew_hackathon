@@ -42,6 +42,7 @@ The server retrieves up to **50 latest public uploads**, plus up to three search
 - If that sample still has fewer than three videos, the average is **Unknown / insufficient sample**.
 - Search-only matches, future publications, ongoing/upcoming broadcasts, missing dates and missing view counts do not enter the average. Zero observed views remain zero.
 - Cards, details, comparison and CSV use the same measured result. They include publication window, sample size, timestamp and any sample cap / missing-count flags. Details and CSV identify the included videos and counts.
+- Cards, details and comparison also show the median view count from that exact sample so one unusually popular upload does not hide typical performance. CSV exports it as `recent_median_views`.
 - This is the mean **lifetime public view count of videos published in the window**, not the views gained by the channel during those days. Shorts, completed streams and long videos are mixed and are not normalized. If 50 uploads do not cover the window, the latest-50 sample is explicitly labeled; it is not advertised as a complete channel average.
 
 Older saved snapshots without this measurement show Unknown and require a new search. One imported example video is not a measured 30/90-day average. Set the view limit to 0 to review such imports.

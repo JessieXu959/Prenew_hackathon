@@ -39,9 +39,13 @@ assert.equal(comparisonMetrics({}).views.value,null);
 assert.equal(comparisonMetrics({}).engagement,null);
 console.log('Comparison metrics checks passed.');
 
-const {viewSummary,viewSubscriberRatio,nicheEvidence,languageStatus}=await import('../dist/research-core.js');
+const {viewSummary,medianViews,viewSubscriberRatio,nicheEvidence,languageStatus}=await import('../dist/research-core.js');
 const live={...c,sourceType:'live',country:'FI',countrySource:'YouTube channel-declared country',market:'FI',contentLanguage:'fi',fetchedAt:'2026-09-27T12:00:00Z',videos:Array.from({length:3},(_,i)=>({id:String(i),title:'Fortnite RTX 5090 budget gaming PC',publishedAt:'2026-09-25T12:00:00Z',views:(i+1)*100,url:'https://youtube.com/watch?v='+i,recentUpload:true,audioLanguage:'fi',metadataLanguage:'fi'})),recentViewStats:{average:200,windowDays:30,sampleSize:3,videoIds:['0','1','2'],checkedAt:'2026-09-27T12:00:00Z',status:'sufficient',method:'Mean lifetime public views of sampled uploads'}};
 assert.equal(viewSummary(live).average,200);
+assert.equal(medianViews(live),200);
+const outlier={...live,videos:[...live.videos,{...live.videos[0],id:'3',views:10000}],recentViewStats:{...live.recentViewStats,average:2650,sampleSize:4,videoIds:['0','1','2','3']}};
+assert.equal(medianViews(outlier),250,'Median must resist one high-view outlier');
+assert.equal(medianViews({...live,videos:live.videos.slice(0,2)}),null,'An incomplete measured sample must not produce a median');
 assert.deepEqual(viewSubscriberRatio(live),{value:20,label:'High Activity',tone:'high',text:'20.0% view ratio'});
 assert.equal(viewSubscriberRatio({...live,recentViewStats:{...live.recentViewStats,average:199}}).label,'Healthy / Normal');
 assert.equal(viewSubscriberRatio({...live,recentViewStats:{...live.recentViewStats,average:80}}).label,'Healthy / Normal');
@@ -54,7 +58,7 @@ assert.equal(viewSummary({...live,sourceType:'imported'}).average,null,'Imported
 assert.ok(nicheEvidence(live).some(x=>x.label==='Fortnite'&&x.videos.length===3));
 assert.equal(languageStatus({...live,videos:live.videos.map(v=>({...v,metadataLanguage:'pt-BR'}))},'fi').accepted,false);
 const fullCSV=shortlistCSV([{creator:live,pipeline:{notes:'Review linked videos',status:'Shortlisted'}}],fi,defaultWeights);
-for(const column of ['country','country_source','content_language','language_evidence','verified_audience_country','subscribers_followers','recent_average_views','view_subscriber_ratio','views_window_days','views_sample_size','views_last_checked','niche_game_hardware','public_contact','views_video_urls','missing_data_flags'])assert.ok(fullCSV.split('\r\n')[0].includes('"'+column+'"'),column);
-assert.match(fullCSV,/"200","20","30","3"/);assert.match(fullCSV,/"100 \| 200 \| 300"/);
+for(const column of ['country','country_source','content_language','language_evidence','verified_audience_country','subscribers_followers','recent_average_views','recent_median_views','view_subscriber_ratio','views_window_days','views_sample_size','views_last_checked','niche_game_hardware','public_contact','views_video_urls','missing_data_flags'])assert.ok(fullCSV.split('\r\n')[0].includes('"'+column+'"'),column);
+assert.match(fullCSV,/"200","200","20","30","3"/);assert.match(fullCSV,/"100 \| 200 \| 300"/);
 assert.match(fullCSV,/No public contact found/);assert.match(fullCSV,/YouTube channel-declared country/);
 console.log('Sponsor export checks passed: measured-view consistency, source separation, language conflicts, niche/video provenance, and complete CSV fields.');

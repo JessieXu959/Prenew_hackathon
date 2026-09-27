@@ -41,8 +41,10 @@ const large={...creator,id:'large',followers:500000};
 const ranking=stateFor({small,large});ranking.researchWeights={topic:100,language:100,recency:0,views:0,engagement:0};
 assert.deepEqual(filtered(ranking).map(c=>c.id),['large','small']);assert.equal(ranking.researchWeights.language,0);
 const html=researchHTML(stateFor({good:creator}));
-for(const expected of ['Target country / market','Germany','Recent average views','600.0% view ratio','High Activity','30-day publication window','5 videos','Niche / games / hardware','No public contact found','Verified audience country'])assert.ok(html.includes(expected),expected);
-assert.match(researchDetailHTML(creator,stateFor({good:creator})),/VIEW WINDOW SAMPLE/);
+for(const expected of ['Target country / market','Germany','Recent average views','Median: 6,000 views','600.0% view ratio','High Activity','30-day publication window','5 videos','Niche / games / hardware','No public contact found','Verified audience country'])assert.ok(html.includes(expected),expected);
+const detailHTML=researchDetailHTML(creator,stateFor({good:creator}));
+assert.match(detailHTML,/VIEW WINDOW SAMPLE/);
+assert.match(detailHTML,/Median: 6,000 views/);
 console.log('Discovery checks passed: strict country/recent-language gates, Sweden regressions, thresholds, imports, ranking, and required UI fields.');
 
 const staleTopic={...creator,id:'stale',videos:[...videos.map(v=>({...v,title:'Cooking pasta'})),{...videos[0],id:'old-hit',title:'budget gaming PC',publishedAt:'2000-01-01',recentUpload:false,matchedSearch:true}]};

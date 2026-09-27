@@ -8,6 +8,7 @@ The existing working prototype has been improved in place. This update focuses o
 
 ## Added
 
+- A recent median views value beside the average on creator cards and detail views, plus the comparison table and `recent_median_views` CSV column. It uses the exact measured 30/90-day video sample and reports N/A when that sample cannot be reconstructed completely.
 - A deterministic views-to-subscribers indicator on creator cards and detail views. It shows the percentage plus **High Activity** (20%+), **Healthy / Normal** (8–19.9%), or **Low Activity** (under 8%) with subtle color coding; missing or zero inputs show **Ratio: N/A**. The same percentage is exported as `view_subscriber_ratio`.
 - A country/market selector in live discovery, including **Germany**, connected to existing localized terms and language options. Market is sent as a YouTube search hint and included in the server cache key.
 - Creator country and country source, target search market, content language and independently verified audience country as **separate fields** in cards, details, comparison and export.
